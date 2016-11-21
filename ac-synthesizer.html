@@ -1,17 +1,8 @@
 <link rel="import" href="../polymer/polymer.html">
+<script src='./vars.js'></script>
 <dom-module id="ac-synthesizer">
     <template>
         <style></style>
-        <div id="content">
-            <div class="button" data-key="q" on-click="play" data-sound="https://dl.dropboxusercontent.com/s/h9sow482vkw06xe/dinky-kick.mp3"></div>
-            <div class="button" data-key="w" data-sound="https://dl.dropboxusercontent.com/s/kkikcupdg9n1qiy/dinky-snare.mp3"></div>
-            <div class="button" data-key="e" data-sound="https://dl.dropboxusercontent.com/s/d7jlxp5v4z0n62q/dinky-hat-2.mp3"></div>
-            <div class="button" data-key="r" data-sound="https://dl.dropboxusercontent.com/s/rblgnob6tvriudy/dinky-cym.mp3"></div>
-            <div class="button" data-key="t" data-sound="https://dl.dropboxusercontent.com/s/umm8cmrmn8n4a46/dinky-cym-noise.mp3"></div>
-        </div>
-        <div id="device_info">
-            <div id="key_data"></div>
-        </div>
     </template>
     <script>
         Polymer({
@@ -20,48 +11,48 @@
             behaviors: [],
             listeners: {},
             properties: {},
-            : function(){
+            loadAudio: function (url) {
+                var AudioContext = AudioContext || webkitAudioContext;
+                var context = new AudioContext();
+                var masterCompression = context.createDynamicsCompressor();
+                var convolver = context.createConvolver();
+                var convolverGain = context.createGain();
+                var masterGain = context.createGain();
+                convolverGain.gain.value=1 ;
+                masterGain.gain.value=1 ;
 
-            },
-            loadAudio: function (object, url) {
-                var request = new XMLHttpRequest();
-                request.open('GET', url, true);
-                request.responseType = 'arraybuffer';
-                request.onload = function () {
-                    context.decodeAudioData(request.response, function (buffer) {
-                        object.buffer = buffer;
+
+                var ajaxRequest = new XMLHttpRequest();
+                ajaxRequest.open('GET', 'https://dl.dropboxusercontent.com/s/v3hwaojdxrono5t/factory.hall.wav?dl=0', true);
+                ajaxRequest.responseType = 'arraybuffer';
+                ajaxRequest.onload = function () {
+                    context.decodeAudioData(ajaxRequest.response, function (buffer) {
+                        convolver.buffer = buffer;
+                        convolver.connect(masterGain) ;
+                        var request = new XMLHttpRequest();
+                        request.open('GET', url, true);
+                        request.responseType = 'arraybuffer';
+                        request.onload = function () {
+                            context.decodeAudioData(request.response, function (buffer) {
+                                var source = context.createBufferSource();
+                                source.buffer = buffer;
+                                source.connect(convolverGain);
+                                source.connect(masterGain) ;
+                                convolverGain.connect(convolver);
+                                masterGain.connect(masterCompression) ;
+                                masterCompression.connect(context.destination) ;
+                                source.start();
+                            });
+                        };
+                        request.send();
                     });
                 };
-                request.send();
-            },
-            addAudioProperties: function (object) {
-                object.name = object.id;
-                object.source = object.dataset.sound;
-                this.loadAudio(object, object.source);
-                object.play = function (volume) {
-                    var s = context.createBufferSource();
-                    var g = context.createGain();
-                    var v;
-                    s.buffer = object.buffer;
-                    s.playbackRate.value = randomRange(0.5, 2);
-                    if (volume) {
-                        v = rangeMap(volume, 1, 127, 0.2, 2);
-                        s.connect(g);
-                        g.gain.value = v * v;
-                        g.connect(context.destination);
-                    } else {
-                        s.connect(context.destination);
-                    }
-                    s.start();
-                    object.s = s;
-                };
+                ajaxRequest.send();
+
+
             },
             ready: function () {
-                // prepare audio files
-                var btn = document.getElementsByClassName('button');
-                for (var i = 0; i < btn.length; i++) {
-                    this.addAudioProperties(btn[i]);
-                }
+                this.loadAudio("https://dl.dropboxusercontent.com/s/bwlqwxhfoaaerx1/65l.mp3?dl=0");
             }
         });
     </script>
