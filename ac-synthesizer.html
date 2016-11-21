@@ -14,34 +14,26 @@
             loadAudio: function (url) {
                 var AudioContext = AudioContext || webkitAudioContext;
                 var context = new AudioContext();
-                var masterCompression = context.createDynamicsCompressor();
                 var convolver = context.createConvolver();
-                var convolverGain = context.createGain();
-                var masterGain = context.createGain();
-                convolverGain.gain.value=1 ;
-                masterGain.gain.value=1 ;
-
 
                 var ajaxRequest = new XMLHttpRequest();
                 ajaxRequest.open('GET', 'https://dl.dropboxusercontent.com/s/v3hwaojdxrono5t/factory.hall.wav?dl=0', true);
                 ajaxRequest.responseType = 'arraybuffer';
                 ajaxRequest.onload = function () {
                     context.decodeAudioData(ajaxRequest.response, function (buffer) {
+                        
                         convolver.buffer = buffer;
-                        convolver.connect(masterGain) ;
                         var request = new XMLHttpRequest();
                         request.open('GET', url, true);
                         request.responseType = 'arraybuffer';
                         request.onload = function () {
                             context.decodeAudioData(request.response, function (buffer) {
-                                var source = context.createBufferSource();
-                                source.buffer = buffer;
-                                source.connect(convolverGain);
-                                source.connect(masterGain) ;
-                                convolverGain.connect(convolver);
-                                masterGain.connect(masterCompression) ;
-                                masterCompression.connect(context.destination) ;
-                                source.start();
+                                var s = context.createBufferSource();
+                                s.buffer = buffer;
+                                // s.loop=true ;
+                                s.connect(convolver);
+                                convolver.connect(context.destination);
+                                s.start();
                             });
                         };
                         request.send();
