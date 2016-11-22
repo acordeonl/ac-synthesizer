@@ -1,4 +1,4 @@
-<link rel="import" href="../polymer/polymer.html">
+d<link rel="import" href="../polymer/polymer.html">
 <script src='./vars.js'></script>
 <dom-module id="ac-synthesizer">
     <template>
@@ -10,25 +10,23 @@
             observers: [],
             behaviors: [],
             listeners: {},
-            properties: {},
+            properties: {
+            },
             loadAudio: function (url) {
-                var AudioContext = AudioContext || webkitAudioContext;
                 var context = new AudioContext();
                 var masterCompression = context.createDynamicsCompressor();
                 var convolver = context.createConvolver();
                 var convolverGain = context.createGain();
                 var masterGain = context.createGain();
-                convolverGain.gain.value=1 ;
-                masterGain.gain.value=1 ;
-
-
+                convolverGain.gain.value = 1;
+                masterGain.gain.value = 1;
                 var ajaxRequest = new XMLHttpRequest();
                 ajaxRequest.open('GET', 'https://dl.dropboxusercontent.com/s/v3hwaojdxrono5t/factory.hall.wav?dl=0', true);
                 ajaxRequest.responseType = 'arraybuffer';
                 ajaxRequest.onload = function () {
                     context.decodeAudioData(ajaxRequest.response, function (buffer) {
                         convolver.buffer = buffer;
-                        convolver.connect(masterGain) ;
+                        convolver.connect(masterGain);
                         var request = new XMLHttpRequest();
                         request.open('GET', url, true);
                         request.responseType = 'arraybuffer';
@@ -37,10 +35,10 @@
                                 var source = context.createBufferSource();
                                 source.buffer = buffer;
                                 source.connect(convolverGain);
-                                source.connect(masterGain) ;
+                                source.connect(masterGain);
                                 convolverGain.connect(convolver);
-                                masterGain.connect(masterCompression) ;
-                                masterCompression.connect(context.destination) ;
+                                masterGain.connect(masterCompression);
+                                masterCompression.connect(context.destination);
                                 source.start();
                             });
                         };
@@ -48,11 +46,49 @@
                     });
                 };
                 ajaxRequest.send();
-
-
+            },
+            createSoundWithBuffer: function (buffer) {
+                var audioSource = context.createBufferSource();
+                audioSource.connect(context.destination);
+                context.decodeAudioData(buffer, function (res) {
+                    audioSource.buffer = res;
+                    if ( this.time === undefined )
+                        this.time = 0 ;
+                    audioSource.start(5 + this.time);
+                    this.time = this.time + .75 ;
+                });
+            },
+            processConcatenatedFile: function (data) {
+                var bb = new DataView(data);
+                var offset = 0;
+                while (offset < bb.byteLength) {
+                    var length = bb.getUint32(offset, true);
+                    offset += 4;
+                    var sound = this.extractBuffer(data, offset, length);
+                    offset += length;
+                    this.createSoundWithBuffer(sound.buffer);
+                }
+            },
+            extractBuffer: function (src, offset, length) {
+                var dstU8 = new Uint8Array(length);
+                var srcU8 = new Uint8Array(src, offset, length);
+                dstU8.set(srcU8);
+                return dstU8;
             },
             ready: function () {
-                this.loadAudio("https://dl.dropboxusercontent.com/s/bwlqwxhfoaaerx1/65l.mp3?dl=0");
+                this.time = 0 ;
+                var request = new XMLHttpRequest();
+                request.open('GET', '/data/accordion.mp3', true);
+                request.responseType = 'arraybuffer';
+                request.onload = function () {
+                    this.processConcatenatedFile(request.response);
+                }.bind(this);
+                var ajaxRequest = new XMLHttpRequest();
+                
+                this.async ( function ( ) {
+                    request.send();
+                }, 4000 ) ;
+                // this.loadAudio("https://dl.dropboxusercontent.com/s/bwlqwxhfoaaerx1/65l.mp3?dl=0");
             }
         });
     </script>
