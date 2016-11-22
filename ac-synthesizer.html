@@ -15,14 +15,16 @@ d<link rel="import" href="../polymer/polymer.html">
     </template>
     <script>
         var context = new AudioContext();
-        var masterCompression = context.createDynamicsCompressor();
         var convolver = context.createConvolver();
-        var convolverGain = context.createGain();
-        var masterGain = context.createGain();
-        convolverGain.gain.value = 1;
-        masterGain.gain.value = 1;
-        var audioSources = [];
-        var midiNotes = [];
+        var dry = context.createGain();
+        var wet = context.createGain();
+        convolver.connect(wet);
+        dry.connect(context.destination);
+        wet.connect(context.destination);
+        var value = 0.2;
+        dry.gain.value = (1.0 - value);
+        wet.gain.value = value;
+        var audioGains = [];
         var note = 29;
         Polymer({
             is: "ac-synthesizer",
@@ -33,28 +35,26 @@ d<link rel="import" href="../polymer/polymer.html">
             },
             properties: {},
             _stop: function () {
-                for (var i = 0; i < audioSources.length; i++) {
-                    audioSources[i].stop();
+                if (audioGains[65-29].gain.value===1.0 )
+                    audioGains[65-29].gain.value=  0.0;
+                else {
+                    audioGains[65-29].gain.value=  1.0;
                 }
             },
-            
-            createSoundWithBuffer: function (buffer) {
+            processNotes: function (buffer) {
                 var audioSource = context.createBufferSource();
                 audioSource.connect(context.destination);
                 context.decodeAudioData(buffer, function (res) {
                     var source = context.createBufferSource();
+                    var sourceGain = context.createGain();
                     source.buffer = res;
-                    source.connect(convolverGain);
-                    source.connect(masterGain);
-                    convolverGain.connect(convolver);
-                    masterGain.connect(masterCompression);
-                    masterCompression.connect(context.destination);
-                    if (this.time === undefined)
-                        this.time = 0;
-                    source.start(5 + this.time);
-                    this.time = this.time + 0.75;
-                    audioSources.push(source);
-                    midiNotes.push(note++);
+                    source.connect(sourceGain);
+                    source.loop = true;
+                    sourceGain.connect(convolver);
+                    sourceGain.connect(dry);
+                    sourceGain.gain.value = 0;
+                    source.start() ;
+                    audioGains.push(sourceGain);
                 });
             },
             processConcatenatedFile: function (data) {
@@ -65,7 +65,7 @@ d<link rel="import" href="../polymer/polymer.html">
                     offset += 4;
                     var sound = this.extractBuffer(data, offset, length);
                     offset += length;
-                    this.createSoundWithBuffer(sound.buffer);
+                    this.processNotes(sound.buffer);
                 }
             },
             extractBuffer: function (src, offset, length) {
@@ -75,7 +75,6 @@ d<link rel="import" href="../polymer/polymer.html">
                 return dstU8;
             },
             ready: function () {
-                this.time = 0;
                 var notesRequest = new XMLHttpRequest();
                 notesRequest.open('GET', '/data/accordion.mp3', true);
                 notesRequest.responseType = 'arraybuffer';
@@ -88,11 +87,10 @@ d<link rel="import" href="../polymer/polymer.html">
                 convolverRequest.onload = function () {
                     context.decodeAudioData(convolverRequest.response, function (buffer) {
                         convolver.buffer = buffer;
-                        convolver.connect(masterGain);
                         notesRequest.send();
                     });
                 };
-                convolverRequest.send() ;
+                convolverRequest.send();
                 // this.loadAudio("https://dl.dropboxusercontent.com/s/bwlqwxhfoaaerx1/65l.mp3?dl=0");
             }
         });
