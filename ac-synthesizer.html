@@ -1,4 +1,4 @@
-d<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../polymer/polymer.html">
 <script src='./vars.js'></script>
 <dom-module id="ac-synthesizer">
     <template>
@@ -10,36 +10,42 @@ d<link rel="import" href="../polymer/polymer.html">
                 height: 100px;
                 background-color: red;
             }
+            [box]:hover{
+                cursor: pointer;
+            }
         </style>
         <div box></div>
     </template>
     <script>
-        var context = new AudioContext();
-        var convolver = context.createConvolver();
-        var dry = context.createGain();
-        var wet = context.createGain();
-        convolver.connect(wet);
-        dry.connect(context.destination);
-        wet.connect(context.destination);
-        var value = 0.2;
-        dry.gain.value = (1.0 - value);
-        wet.gain.value = value;
-        var audioGains = [];
-        var note = 29;
         Polymer({
             is: "ac-synthesizer",
             observers: [],
             behaviors: [],
             listeners: {
-                "click": "_stop"
+                "click":"test"
             },
-            properties: {},
-            _stop: function () {
-                if (audioGains[65-29].gain.value===1.0 )
-                    audioGains[65-29].gain.value=  0.0;
-                else {
-                    audioGains[65-29].gain.value=  1.0;
+            properties: {
+                impulseUrl:{
+                    type:String,
+                    value:'/bower_components/ac-synthesizer/factory.hall.mp3'
+                },
+                notesUrl:{
+                    type:String,
+                    value:'/data/accordion.mp3'
                 }
+            },
+            test: function(){
+                if (flag)
+                    this.noteOn(65) ;
+                else
+                    this.noteOff(65) ;
+                flag =!flag ;
+            },
+            noteOn: function (note) {
+                audioGains[note-29].gain.value=  1.0;
+            },
+            noteOff: function (note) {
+                audioGains[note-29].gain.value=  0.0;
             },
             processNotes: function (buffer) {
                 var audioSource = context.createBufferSource();
@@ -76,13 +82,13 @@ d<link rel="import" href="../polymer/polymer.html">
             },
             ready: function () {
                 var notesRequest = new XMLHttpRequest();
-                notesRequest.open('GET', '/data/accordion.mp3', true);
+                notesRequest.open('GET', this.notesUrl, true);
                 notesRequest.responseType = 'arraybuffer';
                 notesRequest.onload = function () {
                     this.processConcatenatedFile(notesRequest.response);
                 }.bind(this);
                 var convolverRequest = new XMLHttpRequest();
-                convolverRequest.open('GET', 'https://dl.dropboxusercontent.com/s/v3hwaojdxrono5t/factory.hall.wav?dl=0', true);
+                convolverRequest.open('GET', this.impulseUrl, true);
                 convolverRequest.responseType = 'arraybuffer';
                 convolverRequest.onload = function () {
                     context.decodeAudioData(convolverRequest.response, function (buffer) {
@@ -91,7 +97,6 @@ d<link rel="import" href="../polymer/polymer.html">
                     });
                 };
                 convolverRequest.send();
-                // this.loadAudio("https://dl.dropboxusercontent.com/s/bwlqwxhfoaaerx1/65l.mp3?dl=0");
             }
         });
     </script>
