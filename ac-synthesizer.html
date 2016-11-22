@@ -36,10 +36,15 @@
             },
             test: function(){
                 if (flag)
-                    this.noteOn(65) ;
+                    this.noteOn(97) ;
                 else
-                    this.noteOff(65) ;
+                    this.noteOff(97) ;
                 flag =!flag ;
+            },
+            updateVolume: function(velocity){
+                // masterVolume.gain.value = velocity/127;
+                // console.log(velocity/127);
+                trebleVolume.gain.value = (velocity/127)*0.8 ;
             },
             noteOn: function (note) {
                 audioGains[note-29].gain.value=  1.0;
@@ -56,8 +61,8 @@
                     source.buffer = res;
                     source.connect(sourceGain);
                     source.loop = true;
-                    sourceGain.connect(convolver);
-                    sourceGain.connect(dry);
+                    trebleVolume.connect(convolver);
+                    sourceGain.connect(trebleVolume);
                     sourceGain.gain.value = 0;
                     source.start() ;
                     audioGains.push(sourceGain);
