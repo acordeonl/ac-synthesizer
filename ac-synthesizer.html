@@ -31,7 +31,7 @@
                 flag =!flag ;
             },
             updateVelocity: function(velocity){
-                trebleVolume.gain.value = (velocity/127)*1.5;
+                trebleVolume.gain.value = (velocity/127)*1;
             },
             noteOn: function (note) {
                 audioGains[note-29].gain.value=  1.0;
@@ -48,7 +48,7 @@
                     source.buffer = res;
                     source.connect(sourceGain);
                     source.loop = true;
-                    sourceGain.connect(trebleVolume);
+                    sourceGain.connect(compressor);
                     sourceGain.gain.value = 0;
                     source.start() ;
                     audioGains.push(sourceGain);
