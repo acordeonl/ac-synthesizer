@@ -16,7 +16,7 @@
             properties: {
                 impulseUrl:{
                     type:String,
-        value:'../../bower_components/ac-synthesizer/IRs/17_IR_Pool_Size_01.wav'
+        value:'../../bower_components/ac-synthesizer/IRs/16_IR_Pool_Size_00.wav'
                 },
                 notesUrl:{
                     type:String,
@@ -31,7 +31,7 @@
                 flag =!flag ;
             },
             updateVelocity: function(velocity){
-                trebleVolume.gain.value = (velocity/127)*1;
+                trebleVolume.gain.value = (velocity/127)*1.5;
             },
             noteOn: function (note) {
                 audioGains[note-29].gain.value=  1.0;
@@ -48,7 +48,6 @@
                     source.buffer = res;
                     source.connect(sourceGain);
                     source.loop = true;
-                    trebleVolume.connect(convolver);
                     sourceGain.connect(trebleVolume);
                     sourceGain.gain.value = 0;
                     source.start() ;
@@ -85,7 +84,7 @@
                 convolverRequest.onload = function () {
                     context.decodeAudioData(convolverRequest.response, function (buffer) {
                         convolver.buffer = buffer;
-                        convolver.normalize = true ;
+                        // convolver.normalize = true ;
                         notesRequest.send();
                     });
                 };
