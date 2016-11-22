@@ -9,15 +9,14 @@ var audioGains = [];
 var note = 29;
 var flag = true ;
 
-dry.gain.value = (1.0-0.7);
-wet.gain.value = 0.35;
+dry.gain.value = (1.8);
+wet.gain.value = 2;
 trebleVolume.gain.value = 1;
 
-compressor.attack=2 ;
-compressor.release=2 ;
-biquadFilter.type = "lowpass";
-biquadFilter.frequency.value = 7000;
-
+// compressor.attack=2 ;
+// compressor.release=2 ;
+biquadFilter.type = "highpass";
+biquadFilter.frequency.value = 0;
 convolver.connect(wet);
 trebleVolume.connect(dry) ;
 dry.connect(compressor);

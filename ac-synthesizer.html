@@ -3,18 +3,7 @@
 <dom-module id="ac-synthesizer">
     <template>
         <style>
-            [box] {
-                position: absolute;
-                top: 400px;
-                width: 100px;
-                height: 100px;
-                background-color: red;
-            }
-            [box]:hover{
-                cursor: pointer;
-            }
         </style>
-        <div box></div>
     </template>
     <script>
         Polymer({
@@ -27,7 +16,7 @@
             properties: {
                 impulseUrl:{
                     type:String,
-                    value:'/bower_components/ac-synthesizer/factory.hall.mp3'
+        value:'../../bower_components/ac-synthesizer/IRs/16_IR_Pool_Size_00.wav'
                 },
                 notesUrl:{
                     type:String,
@@ -41,10 +30,8 @@
                     this.noteOff(97) ;
                 flag =!flag ;
             },
-            updateVolume: function(velocity){
-                // masterVolume.gain.value = velocity/127;
-                // console.log(velocity/127);
-                trebleVolume.gain.value = (velocity/127)*0.8 ;
+            updateVelocity: function(velocity){
+                trebleVolume.gain.value = (velocity/127)*(velocity/127)*3;
             },
             noteOn: function (note) {
                 audioGains[note-29].gain.value=  1.0;
@@ -98,6 +85,7 @@
                 convolverRequest.onload = function () {
                     context.decodeAudioData(convolverRequest.response, function (buffer) {
                         convolver.buffer = buffer;
+                        convolver.normalize = true ;
                         notesRequest.send();
                     });
                 };
