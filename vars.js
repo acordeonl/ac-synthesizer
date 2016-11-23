@@ -7,11 +7,6 @@ var compressorEnd = context.createDynamicsCompressor();
 var trebleVolume = context.createGain();
 var biquadFilter = context.createBiquadFilter();
 var audioGains = [];
-var locked = [] ;
-var waitingOnLock= [] ;
-var waitingOffLock = [] ;
-var waitingOn= [] ;
-var waitingOff =[] ;
 var note = 29;
 var flag = true ;
 
