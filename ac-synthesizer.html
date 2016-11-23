@@ -26,9 +26,6 @@
             updateVelocity: function (velocity) {
                 trebleVolume.gain.value = (velocity / 127) * 2;
             },
-            sleep: function (ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
-            },
             _noteOffAux: function (note) {
                 if (notesOffWaiting[note - 29] > 0) {
                     notesOffWaiting[note - 29]--;
@@ -45,8 +42,8 @@
                 if (noteOn[note - 29] === 0) {
                     noteOn[note - 29] = 1;
                     audioGains[note - 29].gain.value = 1.0;
-                    this.sleep(10*Math.random());
-                    this._noteOffAux(note);
+                    var timeout = Math.round(50*Math.random()) ;
+                    setTimeout(this._noteOffAux(note), timeout) ;
                 } else {
                     notesOnWaiting[note - 29]++;
                 }
@@ -55,8 +52,9 @@
                 if (noteOn[note - 29] === 1) {
                     noteOn[note - 29] = 0;
                     audioGains[note - 29].gain.value = 0.0;
-                    this.sleep(10*Math.random());
-                    this._noteOnAux(note);
+                    var timeout = Math.round(50*Math.random()) ;
+                    setTimeout(this._noteOnAux(note), timeout) ;
+
                 } else {
                     notesOffWaiting[note - 29]++;
                 }
