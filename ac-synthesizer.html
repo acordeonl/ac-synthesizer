@@ -2,8 +2,7 @@
 <script src='./vars.js'></script>
 <dom-module id="ac-synthesizer">
     <template>
-        <style>
-        </style>
+        <style></style>
     </template>
     <script>
         Polymer({
@@ -11,33 +10,56 @@
             observers: [],
             behaviors: [],
             listeners: {
-                "click":"test"
             },
             properties: {
-                impulseUrl:{
-                    type:String,
-        value:'../../bower_components/ac-synthesizer/IRs/16_IR_Pool_Size_00.wav'
+                impulseUrl: {
+                    type: String,
+                    value: '../../bower_components/ac-synthesizer/16_IR_Pool_Size_00.wav'
                 },
-                notesUrl:{
-                    type:String,
-                    value:'/data/accordion.mp3'
+                notesUrl: {
+                    type: String,
+                    value: '/data/accordion.mp3'
                 }
             },
-            test: function(){
-                if (flag)
-                    this.noteOn(97) ;
-                else
-                    this.noteOff(97) ;
-                flag =!flag ;
+            test: function () {
+                console.log("note on");
             },
-            updateVelocity: function(velocity){
-                trebleVolume.gain.value = (velocity/127)*1;
+            updateVelocity: function (velocity) {
+                trebleVolume.gain.value = (velocity / 127) * 1;
+            },
+            _noteOffAux: function(note){
+                if (notesOffWaiting[note-29] > 0 ) {
+                    notesOffWaiting[note-29] -- ;
+                    this.noteOff(note) ;
+                }
+            },
+            _noteOnAux: function(note){
+                if (notesOnWaiting[note-29] > 0 ) {
+                    notesOnWaiting[note-29] -- ;
+                    this.noteOn(note) ;
+                }
             },
             noteOn: function (note) {
-                audioGains[note-29].gain.value=  1.0;
+                if ( noteOn[note-29] === 0) {
+                    noteOn[note-29] = 1 ;
+                    audioGains[note - 29].gain.value = 1.0;
+                    console.log("note on " + note );
+                    this._noteOffAux(note) ;
+                }
+                else{
+                    notesOnWaiting[note-29] ++ ;
+                }
             },
             noteOff: function (note) {
-                audioGains[note-29].gain.value=  0.0;
+                if ( noteOn[note-29] === 1) {
+                    noteOn[note-29] = 0 ;
+                    audioGains[note - 29].gain.value = 0.0;
+                    console.log("note on " + note );
+                    this._noteOnAux(note) ;
+                }
+                else{
+                    notesOffWaiting[note-29] ++ ;
+                }
             },
             processNotes: function (buffer) {
                 var audioSource = context.createBufferSource();
@@ -50,8 +72,11 @@
                     source.loop = true;
                     sourceGain.connect(compressor);
                     sourceGain.gain.value = 0;
-                    source.start() ;
+                    source.start();
                     audioGains.push(sourceGain);
+                    notesOnWaiting.push(0) ;
+                    notesOffWaiting.push(0) ;
+                    noteOn.push(0) ;
                 });
             },
             processConcatenatedFile: function (data) {
