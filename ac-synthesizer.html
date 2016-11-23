@@ -11,6 +11,10 @@
             behaviors: [],
             listeners: {},
             properties: {
+                startNote:{
+                    type:Number,
+                    value:29
+                },
                 impulseUrl: {
                     type: String,
                     value: '../../bower_components/ac-synthesizer/16_IR_Pool_Size_00.wav'
@@ -20,43 +24,40 @@
                     value: '/data/accordion.mp3'
                 }
             },
-            test: function () {
-                console.log("note on");
-            },
             updateVelocity: function (velocity) {
                 trebleVolume.gain.value = (velocity / 127) * 2;
             },
             _noteOffAux: function (note) {
-                if (notesOffWaiting[note - 29] > 0) {
-                    notesOffWaiting[note - 29]--;
+                if (notesOffWaiting[note -this.startNote] > 0) {
+                    notesOffWaiting[note -this.startNote]--;
                     this.noteOff(note);
                 }
             },
             _noteOnAux: function (note) {
-                if (notesOnWaiting[note - 29] > 0) {
-                    notesOnWaiting[note - 29]--;
+                if (notesOnWaiting[note -this.startNote] > 0) {
+                    notesOnWaiting[note -this.startNote]--;
                     this.noteOn(note);
                 }
             },
             noteOn: function (note) {
-                if (noteOn[note - 29] === 0) {
-                    noteOn[note - 29] = 1;
-                    audioGains[note - 29].gain.value = 1.0;
+                if (noteOn[note -this.startNote] === 0) {
+                    noteOn[note -this.startNote] = 1;
+                    audioGains[note -this.startNote].gain.value = 1.0;
                     var timeout = Math.round(50*Math.random()) ;
                     setTimeout(this._noteOffAux(note), timeout) ;
                 } else {
-                    notesOnWaiting[note - 29]++;
+                    notesOnWaiting[note -this.startNote]++;
                 }
             },
             noteOff: function (note) {
-                if (noteOn[note - 29] === 1) {
-                    noteOn[note - 29] = 0;
-                    audioGains[note - 29].gain.value = 0.0;
+                if (noteOn[note -this.startNote] === 1) {
+                    noteOn[note -this.startNote] = 0;
+                    audioGains[note -this.startNote].gain.value = 0.0;
                     var timeout = Math.round(50*Math.random()) ;
                     setTimeout(this._noteOnAux(note), timeout) ;
 
                 } else {
-                    notesOffWaiting[note - 29]++;
+                    notesOffWaiting[note -this.startNote]++;
                 }
             },
             processNotes: function (buffer) {
