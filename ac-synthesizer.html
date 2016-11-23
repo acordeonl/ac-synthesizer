@@ -2,8 +2,7 @@
 <script src='./vars.js'></script>
 <dom-module id="ac-synthesizer">
     <template>
-        <style>
-        </style>
+        <style></style>
     </template>
     <script>
         Polymer({
@@ -11,33 +10,77 @@
             observers: [],
             behaviors: [],
             listeners: {
-                "click":"test"
+                "click": "test"
             },
             properties: {
-                impulseUrl:{
-                    type:String,
-        value:'../../bower_components/ac-synthesizer/IRs/16_IR_Pool_Size_00.wav'
+                impulseUrl: {
+                    type: String,
+                    value: '../../bower_components/ac-synthesizer/IRs/16_IR_Pool_Size_00.wav'
                 },
-                notesUrl:{
-                    type:String,
-                    value:'/data/accordion.mp3'
+                notesUrl: {
+                    type: String,
+                    value: '/data/accordion.mp3'
                 }
             },
-            test: function(){
+            test: function () {
                 if (flag)
-                    this.noteOn(97) ;
+                    this.noteOn(97);
                 else
-                    this.noteOff(97) ;
-                flag =!flag ;
+                    this.noteOff(97);
+                flag = !flag;
             },
-            updateVelocity: function(velocity){
-                trebleVolume.gain.value = (velocity/127)*1;
+            updateVelocity: function (velocity) {
+                trebleVolume.gain.value = (velocity / 127) * 1;
             },
             noteOn: function (note) {
-                audioGains[note-29].gain.value=  1.0;
+                waitingOn[note - 29]++;
+                if (audioGains[note - 29].gain.value === 0.0 && !locked[note - 29]) {
+                    locked[note - 29] = true;
+                    audioGains[note - 29].gain.value = 1.0;
+                    waitingOn[note - 29]--;
+                    locked[note - 29] = false;
+                    this.async(function(){
+                        this._noteOffAux(note);
+                    } , 5 )  ;
+                }
+            },
+            _noteOnAux: function (note) {
+                if (waitingOn[note - 29] > 0) {
+                    if (audioGains[note - 29].gain.value === 0.0 && !locked[note - 29]) {
+                        locked[note - 29] = true;
+                        audioGains[note - 29].gain.value = 1.0;
+                        waitingOn[note - 29]--;
+                        locked[note - 29] = false;
+                        this.async(function(){
+                            this._noteOffAux(note);
+                        } , 5 )  ;
+                    }
+                }
+            },
+            _noteOffAux: function (note) {
+                if (waitingOff[note - 29] > 0) {
+                    if (audioGains[note - 29].gain.value === 1.0 && !locked[note - 29]) {
+                        locked[note - 29] = true;
+                        audioGains[note - 29].gain.value = 0.0;
+                        waitingOff[note - 29]--;
+                        locked[note - 29] = false;
+                        this.async(function(){
+                            this._noteOnAux(note);
+                        } , 5 )  ;
+                    }
+                }
             },
             noteOff: function (note) {
-                audioGains[note-29].gain.value=  0.0;
+                waitingOff[note - 29]++;
+                if (audioGains[note - 29].gain.value === 1.0 && !locked[note - 29]) {
+                    locked[note - 29] = true;
+                    audioGains[note - 29].gain.value = 0.0;
+                    waitingOff[note - 29]--;
+                    locked[note - 29] = false;
+                    this.async(function(){
+                        this._noteOnAux(note);
+                    } , 5 )  ;
+                }
             },
             processNotes: function (buffer) {
                 var audioSource = context.createBufferSource();
@@ -50,7 +93,12 @@
                     source.loop = true;
                     sourceGain.connect(compressor);
                     sourceGain.gain.value = 0;
-                    source.start() ;
+                    source.start();
+                    locked.push(false);
+                    waitingOffLock.push(false);
+                    waitingOnLock.push(false);
+                    waitingOn.push(0);
+                    waitingOff.push(0);
                     audioGains.push(sourceGain);
                 });
             },
