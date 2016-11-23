@@ -9,8 +9,7 @@
             is: "ac-synthesizer",
             observers: [],
             behaviors: [],
-            listeners: {
-            },
+            listeners: {},
             properties: {
                 impulseUrl: {
                     type: String,
@@ -27,38 +26,39 @@
             updateVelocity: function (velocity) {
                 trebleVolume.gain.value = (velocity / 127) * 1;
             },
-            _noteOffAux: function(note){
-                if (notesOffWaiting[note-29] > 0 ) {
-                    notesOffWaiting[note-29] -- ;
-                    this.noteOff(note) ;
+            sleep: function (ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            },
+            _noteOffAux: function (note) {
+                if (notesOffWaiting[note - 29] > 0) {
+                    notesOffWaiting[note - 29]--;
+                    this.noteOff(note);
                 }
             },
-            _noteOnAux: function(note){
-                if (notesOnWaiting[note-29] > 0 ) {
-                    notesOnWaiting[note-29] -- ;
-                    this.noteOn(note) ;
+            _noteOnAux: function (note) {
+                if (notesOnWaiting[note - 29] > 0) {
+                    notesOnWaiting[note - 29]--;
+                    this.noteOn(note);
                 }
             },
             noteOn: function (note) {
-                if ( noteOn[note-29] === 0) {
-                    noteOn[note-29] = 1 ;
+                if (noteOn[note - 29] === 0) {
+                    noteOn[note - 29] = 1;
                     audioGains[note - 29].gain.value = 1.0;
-                    console.log("note on " + note );
-                    this._noteOffAux(note) ;
-                }
-                else{
-                    notesOnWaiting[note-29] ++ ;
+                    this.sleep(10*Math.random());
+                    this._noteOffAux(note);
+                } else {
+                    notesOnWaiting[note - 29]++;
                 }
             },
             noteOff: function (note) {
-                if ( noteOn[note-29] === 1) {
-                    noteOn[note-29] = 0 ;
+                if (noteOn[note - 29] === 1) {
+                    noteOn[note - 29] = 0;
                     audioGains[note - 29].gain.value = 0.0;
-                    console.log("note on " + note );
-                    this._noteOnAux(note) ;
-                }
-                else{
-                    notesOffWaiting[note-29] ++ ;
+                    this.sleep(10*Math.random());
+                    this._noteOnAux(note);
+                } else {
+                    notesOffWaiting[note - 29]++;
                 }
             },
             processNotes: function (buffer) {
@@ -74,9 +74,9 @@
                     sourceGain.gain.value = 0;
                     source.start();
                     audioGains.push(sourceGain);
-                    notesOnWaiting.push(0) ;
-                    notesOffWaiting.push(0) ;
-                    noteOn.push(0) ;
+                    notesOnWaiting.push(0);
+                    notesOffWaiting.push(0);
+                    noteOn.push(0);
                 });
             },
             processConcatenatedFile: function (data) {
