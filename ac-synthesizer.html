@@ -1,5 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
-<script src='./vars.js'></script>
+<!-- <script src='./vars.js'></script> -->
 <dom-module id="ac-synthesizer">
     <template>
         <style></style>
@@ -11,72 +11,66 @@
             behaviors: [],
             listeners: {},
             properties: {
-                startNote:{
-                    type:Number,
-                    value:29
-                },
                 impulseUrl: {
                     type: String,
                     value: '../../bower_components/ac-synthesizer/16_IR_Pool_Size_00.wav'
                 },
                 notesUrl: {
-                    type: String,
-                    value: '/data/accordion.mp3'
+                    type: String
                 }
             },
             updateVelocity: function (velocity) {
-                trebleVolume.gain.value = (velocity / 127) * 2;
+                this.trebleVolume.gain.value = (velocity / 127) * 2;
             },
             _noteOffAux: function (note) {
-                if (notesOffWaiting[note -this.startNote] > 0) {
-                    notesOffWaiting[note -this.startNote]--;
+                if (this.notesOffWaiting[note] > 0) {
+                    this.notesOffWaiting[note]--;
                     this.noteOff(note);
                 }
             },
             _noteOnAux: function (note) {
-                if (notesOnWaiting[note -this.startNote] > 0) {
-                    notesOnWaiting[note -this.startNote]--;
+                if (this.notesOnWaiting[note] > 0) {
+                    this.notesOnWaiting[note]--;
                     this.noteOn(note);
                 }
             },
             noteOn: function (note) {
-                if (noteOn[note -this.startNote] === 0) {
-                    noteOn[note -this.startNote] = 1;
-                    audioGains[note -this.startNote].gain.value = 1.0;
-                    var timeout = Math.round(50*Math.random()) ;
-                    setTimeout(this._noteOffAux(note), timeout) ;
+                if (this.noteOnArr[note] === 0) {
+                    this.noteOnArr[note] = 1;
+                    this.audioGains[note].gain.value = 1.0;
+                    var timeout = Math.round(50 * Math.random());
+                    setTimeout(this._noteOffAux(note), timeout);
                 } else {
-                    notesOnWaiting[note -this.startNote]++;
+                    this.notesOnWaiting[note]++;
                 }
             },
             noteOff: function (note) {
-                if (noteOn[note -this.startNote] === 1) {
-                    noteOn[note -this.startNote] = 0;
-                    audioGains[note -this.startNote].gain.value = 0.0;
-                    var timeout = Math.round(50*Math.random()) ;
-                    setTimeout(this._noteOnAux(note), timeout) ;
-
+                if (this.noteOnArr[note] === 1) {
+                    this.noteOnArr[note] = 0;
+                    this.audioGains[note].gain.value = 0.0;
+                    var timeout = Math.round(50 * Math.random());
+                    setTimeout(this._noteOnAux(note), timeout);
                 } else {
-                    notesOffWaiting[note -this.startNote]++;
+                    this.notesOffWaiting[note]++;
                 }
             },
             processNotes: function (buffer) {
-                var audioSource = context.createBufferSource();
-                audioSource.connect(context.destination);
-                context.decodeAudioData(buffer, function (res) {
-                    var source = context.createBufferSource();
-                    var sourceGain = context.createGain();
+                var audioSource = this.context.createBufferSource();
+                audioSource.connect(this.context.destination);
+                this.context.decodeAudioData(buffer, function (res) {
+                    var source = this.context.createBufferSource();
+                    var sourceGain = this.context.createGain();
                     source.buffer = res;
                     source.connect(sourceGain);
                     source.loop = true;
-                    sourceGain.connect(compressor);
+                    sourceGain.connect(this.compressor);
                     sourceGain.gain.value = 0;
                     source.start();
-                    audioGains.push(sourceGain);
-                    notesOnWaiting.push(0);
-                    notesOffWaiting.push(0);
-                    noteOn.push(0);
-                });
+                    this.audioGains.push(sourceGain);
+                    this.notesOnWaiting.push(0);
+                    this.notesOffWaiting.push(0);
+                    this.noteOnArr.push(0);
+                }.bind(this));
             },
             processConcatenatedFile: function (data) {
                 var bb = new DataView(data);
@@ -96,23 +90,52 @@
                 return dstU8;
             },
             ready: function () {
-                var notesRequest = new XMLHttpRequest();
-                notesRequest.open('GET', this.notesUrl, true);
-                notesRequest.responseType = 'arraybuffer';
-                notesRequest.onload = function () {
-                    this.processConcatenatedFile(notesRequest.response);
-                }.bind(this);
-                var convolverRequest = new XMLHttpRequest();
-                convolverRequest.open('GET', this.impulseUrl, true);
-                convolverRequest.responseType = 'arraybuffer';
-                convolverRequest.onload = function () {
-                    context.decodeAudioData(convolverRequest.response, function (buffer) {
-                        convolver.buffer = buffer;
-                        // convolver.normalize = true ;
-                        notesRequest.send();
-                    });
-                };
-                convolverRequest.send();
+                Polymer.RenderStatus.afterNextRender(this, function () {
+                    this.context = new AudioContext();
+                    this.convolver = this.context.createConvolver();
+                    this.dry = this.context.createGain();
+                    this.wet = this.context.createGain();
+                    this.compressor = this.context.createDynamicsCompressor();
+                    this.compressorEnd = this.context.createDynamicsCompressor();
+                    this.trebleVolume = this.context.createGain();
+                    this.biquadFilter = this.context.createBiquadFilter();
+                    this.audioGains = [];
+                    this.notesOnWaiting = [];
+                    this.notesOffWaiting = [];
+                    this.noteOnArr = [];
+                    this.dry.gain.value = 1.3;
+                    this.wet.gain.value = 1.35;
+                    this.trebleVolume.gain.value = 1;
+                    this.compressor.attack = 5;
+                    this.compressor.release = 5;
+                    this.biquadFilter.type = "highpass";
+                    this.biquadFilter.frequency.value = 0;
+                    this.compressor.connect(this.trebleVolume);
+                    this.trebleVolume.connect(this.dry);
+                    this.trebleVolume.connect(this.convolver);
+                    this.convolver.connect(this.wet);
+                    this.dry.connect(this.compressorEnd);
+                    this.wet.connect(this.compressorEnd);
+                    this.compressorEnd.connect(this.biquadFilter);
+                    this.biquadFilter.connect(this.context.destination);
+                    var notesRequest = new XMLHttpRequest();
+                    notesRequest.open('GET', this.notesUrl, true);
+                    notesRequest.responseType = 'arraybuffer';
+                    notesRequest.onload = function () {
+                        this.processConcatenatedFile(notesRequest.response);
+                    }.bind(this);
+                    var convolverRequest = new XMLHttpRequest();
+                    convolverRequest.open('GET', this.impulseUrl, true);
+                    convolverRequest.responseType = 'arraybuffer';
+                    convolverRequest.onload = function () {
+                        this.context.decodeAudioData(convolverRequest.response, function (buffer) {
+                            this.convolver.buffer = buffer;
+                            // this.convolver.normalize = true ;
+                            notesRequest.send();
+                        }.bind(this));
+                    }.bind(this);
+                    convolverRequest.send();
+                });
             }
         });
     </script>

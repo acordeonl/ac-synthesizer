@@ -19,8 +19,8 @@ trebleVolume.gain.value = 1;
 
 compressor.attack=5 ;
 compressor.release=5 ;
-biquadFilter.type = "lowpass";
-biquadFilter.frequency.value = 8500;
+biquadFilter.type = "highpass";
+biquadFilter.frequency.value = 0;
 compressor.connect(trebleVolume) ;
 trebleVolume.connect(dry) ;
 trebleVolume.connect(convolver);
