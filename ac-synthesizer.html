@@ -17,10 +17,27 @@
                 },
                 notesUrl: {
                     type: String
+                },
+                dryValue:{
+                    type:Number
+                },
+                wetValue:{
+                    type:Number
+                },
+                lowpassValue:{
+                    type:Number
                 }
             },
             updateVelocity: function (velocity) {
-                this.trebleVolume.gain.value = (velocity / 127) * 2;
+                this.trebleVolume.gain.value = (velocity / 127)  ;
+            },
+            allNotesOffChords: function(){
+                for(var i  = 0 ;i < this.audioGains.length ; i ++ ) {
+                    this.audioGains[i].gain.value = 0.0 ;
+                    this.notesOffWaiting[i] = 0 ;
+                    this.notesOnWaiting[i]= 0 ;
+                    this.noteOnArr[i]=0 ;
+                }
             },
             _noteOffAux: function (note) {
                 if (this.notesOffWaiting[note] > 0) {
@@ -103,13 +120,14 @@
                     this.notesOnWaiting = [];
                     this.notesOffWaiting = [];
                     this.noteOnArr = [];
-                    this.dry.gain.value = 1.3;
-                    this.wet.gain.value = 1.35;
+                    console.log(" pa q veas " + this.dryValue + " " + this.wetValue+ " " + this.lowpassValue);
+                    this.dry.gain.value = this.dryValue;
+                    this.wet.gain.value = this.wetValue ;
                     this.trebleVolume.gain.value = 1;
                     this.compressor.attack = 5;
                     this.compressor.release = 5;
-                    this.biquadFilter.type = "highpass";
-                    this.biquadFilter.frequency.value = 0;
+                    this.biquadFilter.type = "lowpass";
+                    this.biquadFilter.frequency.value =this.lowpassValue;
                     this.compressor.connect(this.trebleVolume);
                     this.trebleVolume.connect(this.dry);
                     this.trebleVolume.connect(this.convolver);
