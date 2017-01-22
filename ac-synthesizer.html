@@ -1,5 +1,4 @@
 <link rel="import" href="../polymer/polymer.html">
-<!-- <script src='./vars.js'></script> -->
 <dom-module id="ac-synthesizer">
     <template>
         <style></style>
@@ -11,149 +10,86 @@
             behaviors: [],
             listeners: {},
             properties: {
-                impulseUrl: {
-                    type: String,
-                    value: '../../bower_components/ac-synthesizer/16_IR_Pool_Size_00.wav'
+                id:{
+                    reflectToAttribute:true,
+                    type:String
                 },
-                notesUrl: {
+                instrumentUrl: {
                     type: String
                 },
-                dryValue:{
-                    type:Number
+                notesBuffers:{
+                    type:Array,
+                    value:[]
                 },
-                wetValue:{
-                    type:Number
+                loopDurations:{
+                    type:Array,
+                    value:[]
                 },
-                lowpassValue:{
-                    type:Number
+                playbackButtonAudio:{
+                    type:Array,
+                    value:[]
+                },
+                instrumentButtonAudio:{
+                    type:Array,
+                    value:[]
                 }
             },
-            updateVelocity: function (velocity) {
-                this.trebleVolume.gain.value = (velocity / 127)  ;
+            _loadNote: function(note){
+                var request = new XMLHttpRequest();
+                request.instrumentUrl = this.instrumentUrl;
+                request.note = note ;
+                request.open('GET', request.instrumentUrl+'/'+request.note+'c.mp3', true);
+                request.responseType = 'arraybuffer';
+                request.onload = this._onload.bind(this) ;
+                request.send();
             },
-            allNotesOffChords: function(){
-                for(var i  = 0 ;i < this.audioGains.length ; i ++ ) {
-                    this.audioGains[i].gain.value = 0.0 ;
-                    this.notesOffWaiting[i] = 0 ;
-                    this.notesOnWaiting[i]= 0 ;
-                    this.noteOnArr[i]=0 ;
+            _onload: function(request){
+                request = request.currentTarget ;
+                if (request.status === 404) {
+                    if (!noteNotFound) {
+                        this.fire("toast", {msg: 'La tonalidad no pudo ser cargada'});
+                        noteNotFound = true;
+                    }
+                    return;
                 }
-            },
-            _noteOffAux: function (note) {
-                if (this.notesOffWaiting[note] > 0) {
-                    this.notesOffWaiting[note]--;
-                    this.noteOff(note);
-                }
-            },
-            _noteOnAux: function (note) {
-                if (this.notesOnWaiting[note] > 0) {
-                    this.notesOnWaiting[note]--;
-                    this.noteOn(note);
-                }
-            },
-            noteOn: function (note) {
-                if (this.noteOnArr[note] === 0) {
-                    this.noteOnArr[note] = 1;
-                    this.audioGains[note].gain.value = 1.0;
-                    var timeout = Math.round(50 * Math.random());
-                    setTimeout(this._noteOffAux(note), timeout);
-                } else {
-                    this.notesOnWaiting[note]++;
-                }
-            },
-            noteOff: function (note) {
-                if (this.noteOnArr[note] === 1) {
-                    this.noteOnArr[note] = 0;
-                    this.audioGains[note].gain.value = 0.0;
-                    var timeout = Math.round(50 * Math.random());
-                    setTimeout(this._noteOnAux(note), timeout);
-                } else {
-                    this.notesOffWaiting[note]++;
-                }
-            },
-            processNotes: function (buffer) {
-                var audioSource = this.context.createBufferSource();
-                audioSource.connect(this.context.destination);
-                this.context.decodeAudioData(buffer, function (res) {
-                    var source = this.context.createBufferSource();
-                    var sourceGain = this.context.createGain();
-                    source.buffer = res;
-                    source.connect(sourceGain);
-                    source.loop = true;
-                    sourceGain.connect(this.compressor);
-                    sourceGain.gain.value = 0;
-                    source.start();
-                    this.audioGains.push(sourceGain);
-                    this.notesOnWaiting.push(0);
-                    this.notesOffWaiting.push(0);
-                    this.noteOnArr.push(0);
+                var data = request.response;
+                var bb = new DataView(data);
+                this.loopDurations[request.instrumentUrl+request.note] = bb.getFloat32(0, true);
+                var length = bb.getUint32(4, true);
+                var dstU8 = new Uint8Array(length);
+                var srcU8 = new Uint8Array(data, 8, length);
+                dstU8.set(srcU8);
+                var sound = dstU8;
+                context.decodeAudioData(sound.buffer, function (buffer) {
+                    this.notesBuffers[request.instrumentUrl+request.note] = buffer ;
                 }.bind(this));
             },
-            processConcatenatedFile: function (data) {
-                var bb = new DataView(data);
-                var offset = 0;
-                while (offset < bb.byteLength) {
-                    var length = bb.getUint32(offset, true);
-                    offset += 4;
-                    var sound = this.extractBuffer(data, offset, length);
-                    offset += length;
-                    this.processNotes(sound.buffer);
-                }
+            _startButtonAudio: function(note,button,e){
+                var source = context.createBufferSource();
+                source.buffer = this.notesBuffers[this.instrumentUrl+note] ;
+                source.loopStart = source.buffer.duration - this.loopDurations[this.instrumentUrl+note];
+                source.loopEnd = source.buffer.duration;
+                sourceGain = context.createGain();
+                source.connect(sourceGain);
+                source.loop = true;
+                sourceGain.connect(compressor);
+                source.start(e.detail.time);
+                var audio = {} ;
+                audio.source =  source ;
+                audio.gain =  sourceGain ;
+                if(e.detail.origin ==='playback')
+                    this.playbackButtonAudio[this.instrumentUrl+button] = audio ;
+                if(e.detail.origin ==='instrument')
+                    this.instrumentButtonAudio[this.instrumentUrl+button] = audio ;
             },
-            extractBuffer: function (src, offset, length) {
-                var dstU8 = new Uint8Array(length);
-                var srcU8 = new Uint8Array(src, offset, length);
-                dstU8.set(srcU8);
-                return dstU8;
-            },
-            ready: function () {
-                Polymer.RenderStatus.afterNextRender(this, function () {
-                    this.context = new AudioContext();
-                    this.convolver = this.context.createConvolver();
-                    this.dry = this.context.createGain();
-                    this.wet = this.context.createGain();
-                    this.compressor = this.context.createDynamicsCompressor();
-                    this.compressorEnd = this.context.createDynamicsCompressor();
-                    this.trebleVolume = this.context.createGain();
-                    this.biquadFilter = this.context.createBiquadFilter();
-                    this.audioGains = [];
-                    this.notesOnWaiting = [];
-                    this.notesOffWaiting = [];
-                    this.noteOnArr = [];
-                    console.log(" pa q veas " + this.dryValue + " " + this.wetValue+ " " + this.lowpassValue);
-                    this.dry.gain.value = this.dryValue;
-                    this.wet.gain.value = this.wetValue ;
-                    this.trebleVolume.gain.value = 1;
-                    this.compressor.attack = 5;
-                    this.compressor.release = 5;
-                    this.biquadFilter.type = "lowpass";
-                    this.biquadFilter.frequency.value =this.lowpassValue;
-                    this.compressor.connect(this.trebleVolume);
-                    this.trebleVolume.connect(this.dry);
-                    this.trebleVolume.connect(this.convolver);
-                    this.convolver.connect(this.wet);
-                    this.dry.connect(this.compressorEnd);
-                    this.wet.connect(this.compressorEnd);
-                    this.compressorEnd.connect(this.biquadFilter);
-                    this.biquadFilter.connect(this.context.destination);
-                    var notesRequest = new XMLHttpRequest();
-                    notesRequest.open('GET', this.notesUrl, true);
-                    notesRequest.responseType = 'arraybuffer';
-                    notesRequest.onload = function () {
-                        this.processConcatenatedFile(notesRequest.response);
-                    }.bind(this);
-                    var convolverRequest = new XMLHttpRequest();
-                    convolverRequest.open('GET', this.impulseUrl, true);
-                    convolverRequest.responseType = 'arraybuffer';
-                    convolverRequest.onload = function () {
-                        this.context.decodeAudioData(convolverRequest.response, function (buffer) {
-                            this.convolver.buffer = buffer;
-                            // this.convolver.normalize = true ;
-                            notesRequest.send();
-                        }.bind(this));
-                    }.bind(this);
-                    convolverRequest.send();
-                });
+            _stopButtonAudio: function(button,e){
+                var audio ;
+                if(e.detail.origin==='playback')
+                    audio = this.playbackButtonAudio[this.instrumentUrl+button] ;
+                if(e.detail.origin==='instrument')
+                    audio = this.instrumentButtonAudio[this.instrumentUrl+button] ;
+                audio.gain.gain.setTargetAtTime(0,e.detail.time, 0.008) ;
+                audio.source.stop(e.detail.time+0.1) ;
             }
         });
     </script>
