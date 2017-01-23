@@ -32,9 +32,16 @@
                 instrumentButtonAudio:{
                     type:Array,
                     value:[]
+                },
+                requested:{
+                    type:Array,
+                    value:[]
                 }
             },
             _loadNote: function(note){
+                if(this.requested[this.instrumentUrl+note]!==undefined)
+                    return ;
+                this.requested[this.instrumentUrl+note] =true ;
                 var request = new XMLHttpRequest();
                 request.instrumentUrl = this.instrumentUrl;
                 request.note = note ;
