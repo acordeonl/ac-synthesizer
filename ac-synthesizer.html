@@ -10,6 +10,19 @@
             behaviors: [],
             listeners: {},
             properties: {
+                velocity:{
+                    type:Number,
+                    value:1,
+                    observer:'_updateVolume'
+                },
+                gain:{
+                    type:Number,
+                    value:1,
+                    observer:'_updateVolume'
+                },
+                instrumentSynthGain:{
+                    type:Object
+                },
                 id:{
                     reflectToAttribute:true,
                     type:String
@@ -79,7 +92,12 @@
                 sourceGain = context.createGain();
                 source.connect(sourceGain);
                 source.loop = true;
-                sourceGain.connect(compressor);
+                if(e.detail.origin === 'instrument'){
+                    sourceGain.connect(this.instrumentSynthGain);
+                    this.instrumentSynthGain.connect(compressor) ;
+                }
+                else
+                    sourceGain.connect(compressor) ;
                 source.start(e.detail.time);
                 var audio = {} ;
                 audio.source =  source ;
@@ -97,6 +115,19 @@
                     audio = this.instrumentButtonAudio[this.instrumentUrl+button] ;
                 audio.gain.gain.setTargetAtTime(0,e.detail.time, 0.008) ;
                 audio.source.stop(e.detail.time+0.1) ;
+            },
+            _updateVolume: function(){
+                if(!this.instrumentSynthGain)
+                    this.instrumentSynthGain = context.createGain() ;
+                if(this.gain !==undefined && this.velocity!==undefined) {
+                    this.instrumentSynthGain.gain.value = this.gain*this.velocity ;
+                }
+            },
+            ready: function () {
+                if(!this.instrumentSynthGain) {
+                    this.instrumentSynthGain = context.createGain() ;
+                    this.instrumentSynthGain.gain.value = 1;
+                }
             }
         });
     </script>
