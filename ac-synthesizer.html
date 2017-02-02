@@ -10,17 +10,25 @@
             behaviors: [],
             listeners: {},
             properties: {
-                velocity:{
+                instrumentVelocity:{
                     type:Number,
                     value:1,
-                    observer:'_updateVolume'
+                    observer:'_updateInstrumentVolume'
                 },
-                gain:{
+                instrumentGain:{
                     type:Number,
                     value:1,
-                    observer:'_updateVolume'
+                    observer:'_updateInstrumentVolume'
+                },
+                playbackGain:{
+                    type:Number,
+                    value:1,
+                    observer:'_updatePlaybackVolume'
                 },
                 instrumentSynthGain:{
+                    type:Object
+                },
+                playbackSynthGain:{
                     type:Object
                 },
                 id:{
@@ -96,8 +104,10 @@
                     sourceGain.connect(this.instrumentSynthGain);
                     this.instrumentSynthGain.connect(compressor) ;
                 }
-                else
-                    sourceGain.connect(compressor) ;
+                else {
+                    sourceGain.connect(this.playbackSynthGain);
+                    this.playbackSynthGain.connect(compressor) ;
+                }
                 source.start(e.detail.time);
                 var audio = {} ;
                 audio.source =  source ;
@@ -116,11 +126,18 @@
                 audio.gain.gain.setTargetAtTime(0,e.detail.time, 0.008) ;
                 audio.source.stop(e.detail.time+0.1) ;
             },
-            _updateVolume: function(){
+            _updateInstrumentVolume: function(){
                 if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
-                if(this.gain !==undefined && this.velocity!==undefined) {
-                    this.instrumentSynthGain.gain.value = this.gain*this.velocity ;
+                if(this.instrumentGain !==undefined && this.instrumentVelocity!==undefined) {
+                    this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
+                }
+            },
+            _updatePlaybackVolume: function(){
+                if(!this.playbackSynthGain)
+                    this.playbackSynthGain = context.createGain() ;
+                if(this.playbackGain !==undefined) {
+                    this.playbackSynthGain.gain.value = this.playbackGain;
                 }
             },
             ready: function () {
