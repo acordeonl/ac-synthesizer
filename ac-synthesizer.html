@@ -148,7 +148,7 @@
                 if(e.detail.origin ==='instrument')
                     this.instrumentButtonAudio[this.instrumentUrl+button] = audio ;
             },
-            pause: function(){
+            stop: function(){
                 var audio;
                 while (this.active.length > 0) {
                     audio = this.active[this.active.length - 1];
