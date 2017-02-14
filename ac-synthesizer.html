@@ -66,12 +66,15 @@
                     value:[]
                 }
             },
-            _loadNote: function(note){
-                if(this.requested[this.instrumentUrl+note]!==undefined)
+            loadNote: function(note,id){
+                if(this.requested[this.instrumentUrl+note]!==undefined) {
+                    this.fire('note-load' , {id:id}) ;
                     return ;
+                }
                 this.requested[this.instrumentUrl+note] =true ;
                 var request = new XMLHttpRequest();
                 request.instrumentUrl = this.instrumentUrl;
+                request.id = id ;
                 request.note = note ;
                 request.open('GET', request.instrumentUrl+'/'+request.note+'c.mp3', true);
                 request.responseType = 'arraybuffer';
@@ -97,6 +100,7 @@
                 var sound = dstU8;
                 context.decodeAudioData(sound.buffer, function (buffer) {
                     this.notesBuffers[request.instrumentUrl+request.note] = buffer ;
+                    this.fire('note-load',{id:request.id}) ;
                 }.bind(this));
             },
             setPlaybackGain: function(gain){
