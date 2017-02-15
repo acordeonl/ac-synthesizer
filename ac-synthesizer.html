@@ -68,7 +68,9 @@
             },
             loadNote: function(note,id){
                 if(this.requested[this.instrumentUrl+note]!==undefined) {
-                    this.fire('note-load' , {id:id}) ;
+                    this.async(function(){
+                        this.fire('note-load' , {id:id}) ;
+                    } , 30 )  ;
                     return ;
                 }
                 this.requested[this.instrumentUrl+note] =true ;
