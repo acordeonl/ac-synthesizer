@@ -10,7 +10,11 @@
             behaviors: [],
             listeners: {},
             properties: {
-                active:{
+                activePlayback:{
+                    type:Array,
+                    value:[]
+                },
+                activeInstrument:{
                     type:Array,
                     value:[]
                 },
@@ -70,10 +74,9 @@
                 if(this.requested[this.instrumentUrl+note]!==undefined) {
                     this.async(function(){
                         this.fire('note-load' , {id:id}) ;
-                    } , 30 )  ;
+                    } , 0 )  ;
                     return ;
                 }
-                this.requested[this.instrumentUrl+note] =true ;
                 var request = new XMLHttpRequest();
                 request.instrumentUrl = this.instrumentUrl;
                 request.id = id ;
@@ -94,6 +97,7 @@
                 }
                 var data = request.response;
                 var bb = new DataView(data);
+                this.requested[request.instrumentUrl+request.note] =true ;
                 this.loopDurations[request.instrumentUrl+request.note] = bb.getFloat32(0, true);
                 var length = bb.getUint32(4, true);
                 var dstU8 = new Uint8Array(length);
@@ -149,18 +153,11 @@
                 audio.gain =  sourceGain ;
                 if(e.detail.origin ==='playback') {
                     this.playbackButtonAudio[this.instrumentUrl+button] = audio ;
-                    this.push('active',audio) ;
+                    this.push('activePlayback',audio) ;
                 }
-                if(e.detail.origin ==='instrument')
+                if(e.detail.origin ==='instrument') {
                     this.instrumentButtonAudio[this.instrumentUrl+button] = audio ;
-            },
-            stop: function(){
-                var audio;
-                while (this.active.length > 0) {
-                    audio = this.active[this.active.length - 1];
-                    audio.gain.gain.setTargetAtTime(0,context.currentTime, 0.008) ;
-                    audio.source.stop(context.currentTime+0.1) ;
-                    this.active.pop();
+                    this.push('activeInstrument',audio) ;
                 }
             },
             _stopButtonAudio: function(button,e){
@@ -169,8 +166,29 @@
                     audio = this.playbackButtonAudio[this.instrumentUrl+button] ;
                 if(e.detail.origin==='instrument')
                     audio = this.instrumentButtonAudio[this.instrumentUrl+button] ;
+                if(audio===undefined)
+                    return ;
                 audio.gain.gain.setTargetAtTime(0,e.detail.time, 0.008) ;
                 audio.source.stop(e.detail.time+0.1) ;
+            },
+            stop: function(origin){
+                var audio;
+                if(origin==='playback') {
+                    while (this.activePlayback.length > 0) {
+                        audio = this.activePlayback[this.activePlayback.length - 1];
+                        audio.gain.gain.setTargetAtTime(0,context.currentTime, 0.008) ;
+                        audio.source.stop(context.currentTime+0.1) ;
+                        this.activePlayback.pop();
+                    }
+                }
+                else if( origin==='instrument') {
+                    while (this.activeInstrument.length > 0) {
+                        audio = this.activeInstrument[this.activeInstrument.length - 1];
+                        audio.gain.gain.setTargetAtTime(0,context.currentTime, 0.008) ;
+                        audio.source.stop(context.currentTime+0.1) ;
+                        this.activeInstrument.pop();
+                    }
+                }
             },
             _updateInstrumentVolume: function(){
                 if(!this.instrumentSynthGain)
