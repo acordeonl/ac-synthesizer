@@ -128,6 +128,8 @@
                 this.instrumentPanner.pan.value = value ;
             },
             _startButtonAudio: function(note,button,e){
+                if(e.detail.origin==='playbackGUI')
+                    return ;
                 var source = context.createBufferSource();
                 source.buffer = this.notesBuffers[this.instrumentUrl+note] ;
                 source.loopStart = source.buffer.duration - this.loopDurations[this.instrumentUrl+note];
@@ -161,6 +163,8 @@
                 }
             },
             _stopButtonAudio: function(button,e){
+                if(e.detail.origin==='playbackGUI')
+                    return ;
                 var audio ;
                 if(e.detail.origin==='playback')
                     audio = this.playbackButtonAudio[this.instrumentUrl+button] ;
