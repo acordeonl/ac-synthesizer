@@ -72,19 +72,19 @@
             },
             loadNote: function(note,id){
                 if(this.requested[this.instrumentUrl+note]!==undefined) {
-                    this.async(function(){
-                        this.fire('note-load' , {id:id}) ;
-                    } , 0 )  ;
+                    this.fire('note-load' , {id:id}) ;
                     return ;
                 }
-                var request = new XMLHttpRequest();
-                request.instrumentUrl = this.instrumentUrl;
-                request.id = id ;
-                request.note = note ;
-                request.open('GET', request.instrumentUrl+'/'+request.note+'c.mp3', true);
-                request.responseType = 'arraybuffer';
-                request.onload = this._onload.bind(this) ;
-                request.send();
+                this.async(function(){
+                    var request = new XMLHttpRequest();
+                    request.instrumentUrl = this.instrumentUrl;
+                    request.id = id ;
+                    request.note = note ;
+                    request.open('GET', request.instrumentUrl+'/'+request.note+'c.mp3', true);
+                    request.responseType = 'arraybuffer';
+                    request.onload = this._onload.bind(this) ;
+                    request.send();
+                } , 0 )  ;
             },
             _onload: function(request){
                 request = request.currentTarget ;
