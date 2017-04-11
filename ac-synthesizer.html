@@ -1,4 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
+
 <dom-module id="ac-synthesizer">
     <template>
         <style></style>
@@ -65,6 +66,13 @@
                     type:Array,
                     value:[]
                 },
+                notesLoaded:{
+                    type:Number,
+                    value:0
+                },
+                instrumentNotes:{
+                    type:Number
+                },
                 requested:{
                     type:Array,
                     value:[]
@@ -72,10 +80,15 @@
             },
             loadNote: function(note,id){
                 if(this.requested[this.instrumentUrl+note]!==undefined) {
-                    this.fire('note-load' , {id:id}) ;
+                    if(this.notesLoaded === undefined )
+                        this.notesLoaded = 0 ;
+                    this.notesLoaded ++ ;
+                    if(this.notesLoaded === this.instrumentNotes ) {
+                        this.fire('notes-loaded') ;
+                    }
                     return ;
                 }
-                this.async(function(){
+                // this.async(function(){
                     var request = new XMLHttpRequest();
                     request.instrumentUrl = this.instrumentUrl;
                     request.id = id ;
@@ -84,7 +97,7 @@
                     request.responseType = 'arraybuffer';
                     request.onload = this._onload.bind(this) ;
                     request.send();
-                } , 0 )  ;
+                // } , 0 )  ;
             },
             _onload: function(request){
                 request = request.currentTarget ;
@@ -106,7 +119,12 @@
                 var sound = dstU8;
                 context.decodeAudioData(sound.buffer, function (buffer) {
                     this.notesBuffers[request.instrumentUrl+request.note] = buffer ;
-                    this.fire('note-load',{id:request.id}) ;
+                    if(this.notesLoaded === undefined )
+                        this.notesLoaded = 0 ;
+                    this.notesLoaded ++ ;
+                    if(this.notesLoaded === this.instrumentNotes ) {
+                        this.fire('notes-loaded') ;
+                    }
                 }.bind(this));
             },
             setPlaybackGain: function(gain){
@@ -181,7 +199,7 @@
                     while (this.activePlayback.length > 0) {
                         audio = this.activePlayback[this.activePlayback.length - 1];
                         audio.gain.gain.setTargetAtTime(0,context.currentTime, 0.008) ;
-                        audio.source.stop(context.currentTime+0.1) ;
+                        audio.source.stop(context.currentTime+0.01) ;
                         this.activePlayback.pop();
                     }
                 }
