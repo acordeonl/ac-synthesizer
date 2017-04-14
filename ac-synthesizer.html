@@ -152,46 +152,47 @@
                 source.buffer = this.notesBuffers[this.instrumentUrl+note] ;
                 source.loopStart = source.buffer.duration - this.loopDurations[this.instrumentUrl+note];
                 source.loopEnd = source.buffer.duration;
-                sourceGain = context.createGain();
+                var sourceGain = context.createGain();
+                sourceGain.gain.value = 0.7 ;
                 source.connect(sourceGain);
                 source.loop = true;
-                if(e.detail.origin === 'instrument'){
+                if(e.detail.origin === 'instrument')
                     sourceGain.connect(this.instrumentSynthGain);
-                    this.instrumentSynthGain.connect(this.instrumentPanner);
-                    this.instrumentPanner.connect(dry);
-                    this.instrumentPanner.connect(convolver);
-                }
-                else {
+                else
                     sourceGain.connect(this.playbackSynthGain);
-                    this.playbackSynthGain.connect(this.playbackPanner);
-                    this.playbackPanner.connect(dry);
-                    this.playbackPanner.connect(convolver);
-                }
-                source.start(e.detail.time);
-                var audio = {} ;
-                audio.source =  source ;
-                audio.gain =  sourceGain ;
+                source.start(e.detail.time-context.currentTime+e.detail.timestamp);
                 if(e.detail.origin ==='playback') {
-                    this.playbackButtonAudio[this.instrumentUrl+button] = audio ;
-                    this.push('activePlayback',audio) ;
+                    this.playbackButtonAudio[this.instrumentUrl+button] = null ;
+                    this.playbackButtonAudio[this.instrumentUrl+button] = {} ;
+                    this.playbackButtonAudio[this.instrumentUrl+button].source = source ;
+                    this.playbackButtonAudio[this.instrumentUrl+button].gain = sourceGain ;
+                    // this.push('activePlayback',audio) ;
                 }
                 if(e.detail.origin ==='instrument') {
-                    this.instrumentButtonAudio[this.instrumentUrl+button] = audio ;
-                    this.push('activeInstrument',audio) ;
+                    this.instrumentButtonAudio[this.instrumentUrl+button] = null ;
+                    this.instrumentButtonAudio[this.instrumentUrl+button] = {} ;
+                    this.instrumentButtonAudio[this.instrumentUrl+button].source = source ;
+                    this.instrumentButtonAudio[this.instrumentUrl+button].gain = sourceGain ;
+                    // this.push('activeInstrument',audio) ;
                 }
+                source = null ;
+                sourceGain = null ;
             },
             _stopButtonAudio: function(button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
-                var audio ;
-                if(e.detail.origin==='playback')
-                    audio = this.playbackButtonAudio[this.instrumentUrl+button] ;
-                if(e.detail.origin==='instrument')
-                    audio = this.instrumentButtonAudio[this.instrumentUrl+button] ;
-                if(audio===undefined)
-                    return ;
-                audio.gain.gain.setTargetAtTime(0,e.detail.time, 0.008) ;
-                audio.source.stop(e.detail.time+0.1) ;
+                if(e.detail.origin==='playback' && this.playbackButtonAudio[this.instrumentUrl+button] !== undefined && this.playbackButtonAudio[this.instrumentUrl+button] !== null) {
+                    this.playbackButtonAudio[this.instrumentUrl+button].gain.gain.setValueAtTime(this.playbackButtonAudio[this.instrumentUrl+button].gain.gain.value, e.detail.time-context.currentTime+e.detail.timestamp);
+                    this.playbackButtonAudio[this.instrumentUrl+button].gain.gain.exponentialRampToValueAtTime(0.00001, e.detail.time-context.currentTime+e.detail.timestamp+0.1);
+                    this.playbackButtonAudio[this.instrumentUrl+button].source.stop(e.detail.time-context.currentTime+e.detail.timestamp+1) ;
+                    this.playbackButtonAudio[this.instrumentUrl+button] = null ;
+                }
+                if(e.detail.origin==='instrument' && this.instrumentButtonAudio[this.instrumentUrl+button] !== undefined && this.instrumentButtonAudio[this.instrumentUrl+button] !== null){
+                    this.instrumentButtonAudio[this.instrumentUrl+button].gain.gain.setValueAtTime(this.instrumentButtonAudio[this.instrumentUrl+button].gain.gain.value, e.detail.time-context.currentTime+e.detail.timestamp);
+                    this.instrumentButtonAudio[this.instrumentUrl+button].gain.gain.exponentialRampToValueAtTime(0.00001, e.detail.time-context.currentTime+e.detail.timestamp+0.1);
+                    this.instrumentButtonAudio[this.instrumentUrl+button].source.stop(e.detail.time-context.currentTime+e.detail.timestamp+1) ;
+                    this.instrumentButtonAudio[this.instrumentUrl+button] = null ;
+                }
             },
             stop: function(origin){
                 var audio;
@@ -220,6 +221,9 @@
                 if(this.instrumentGain !==undefined && this.instrumentVelocity!==undefined) {
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
+                this.instrumentSynthGain.connect(this.instrumentPanner);
+                this.instrumentPanner.connect(context.destination);
+                // this.instrumentPanner.connect(dry);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -229,6 +233,9 @@
                 if(this.playbackGain !==undefined) {
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
+                this.playbackSynthGain.connect(this.playbackPanner);
+                this.playbackPanner.connect(context.destination);
+                // this.playbackPanner.connect(dry);
             },
             ready: function () {
                 if(!this.instrumentSynthGain)
