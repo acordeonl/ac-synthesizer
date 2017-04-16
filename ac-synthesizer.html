@@ -189,7 +189,6 @@
             stop: function(origin){
                 var audio;
                 if(origin==='playback') {
-                    // this.activePlaybackTimestamps = [] ;
                     while (this.activePlayback.length > 0) {
                         audio = this.activePlayback[this.activePlayback.length - 1];
                         audio.gain.gain.cancelScheduledValues(context.currentTime) ;
@@ -200,7 +199,6 @@
                     }
                 }
                 else if( origin==='instrument') {
-                    // this.activeInstrumentTimestamps = []  ;
                     while (this.activeInstrument.length > 0) {
                         audio = this.activeInstrument[this.activeInstrument.length - 1];
                         audio.gain.gain.cancelScheduledValues(context.currentTime) ;
