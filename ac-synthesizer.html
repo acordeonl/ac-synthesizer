@@ -218,7 +218,7 @@
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
                 this.instrumentSynthGain.connect(this.instrumentPanner);
-                this.instrumentPanner.connect(context.destination);
+                this.instrumentPanner.connect(compressor);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -229,7 +229,7 @@
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
                 this.playbackSynthGain.connect(this.playbackPanner);
-                this.playbackPanner.connect(context.destination);
+                this.playbackPanner.connect(compressor);
             },
             ready: function () {
                 if(!this.instrumentSynthGain)
