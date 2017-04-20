@@ -11,14 +11,6 @@
             behaviors: [],
             listeners: {},
             properties: {
-                activePlayback:{
-                    type:Array,
-                    value:[]
-                },
-                activeInstrument:{
-                    type:Array,
-                    value:[]
-                },
                 instrumentVelocity:{
                     type:Number,
                     value:1
@@ -50,6 +42,22 @@
                 instrumentUrl: {
                     type: String
                 },
+                notesLoaded:{
+                    type:Number,
+                    value:0
+                },
+                instrumentNotes:{
+                    type:Number
+                },
+
+                activePlayback:{
+                    type:Array,
+                    value:[]
+                },
+                activeInstrument:{
+                    type:Array,
+                    value:[]
+                },
                 notesBuffers:{
                     type:Array,
                     value:[]
@@ -66,20 +74,21 @@
                     type:Array,
                     value:[]
                 },
-                notesLoaded:{
-                    type:Number,
-                    value:0
-                },
-                instrumentNotes:{
-                    type:Number
-                },
                 requested:{
+                    type:Array,
+                    value:[]
+                },
+                playbackEndTimestamps:{
+                    type:Array,
+                    value:[]
+                },
+                instrumentEndTimestamps:{
                     type:Array,
                     value:[]
                 }
             },
             loadNote: function(note,id){
-                if(this.requested[this.instrumentUrl+note]!==undefined) {
+                if(this.requested[note]!==undefined) {
                     if(this.notesLoaded === undefined )
                         this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
@@ -89,10 +98,9 @@
                     return ;
                 }
                 var request = new XMLHttpRequest();
-                request.instrumentUrl = this.instrumentUrl;
                 request.id = id ;
                 request.note = note ;
-                request.open('GET', request.instrumentUrl+'/'+request.note+'c.mp3', true);
+                request.open('GET', this.instrumentUrl+'/'+request.note+'c.mp3', true);
                 request.responseType = 'arraybuffer';
                 request.onload = this._onload.bind(this) ;
                 request.send();
@@ -108,15 +116,15 @@
                 }
                 var data = request.response;
                 var bb = new DataView(data);
-                this.requested[request.instrumentUrl+request.note] =true ;
-                this.loopDurations[request.instrumentUrl+request.note] = bb.getFloat32(0, true);
+                this.requested[request.note] =true ;
+                this.loopDurations[request.note] = bb.getFloat32(0, true);
                 var length = bb.getUint32(4, true);
                 var dstU8 = new Uint8Array(length);
                 var srcU8 = new Uint8Array(data, 8, length);
                 dstU8.set(srcU8);
                 var sound = dstU8;
                 context.decodeAudioData(sound.buffer, function (buffer) {
-                    this.notesBuffers[request.instrumentUrl+request.note] = buffer ;
+                    this.notesBuffers[request.note] = buffer ;
                     if(this.notesLoaded === undefined )
                         this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
@@ -146,65 +154,111 @@
             _startButtonAudio: function(note,button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
+                synthBuffer ++ ;
+                if(synthBuffer > synthBufferLen)
+                    synthBuffer = synthBufferLen ;
+
                 var audio = {};
                 var sourceGain = context.createGain();
                 var source = context.createBufferSource();
-                source.buffer = this.notesBuffers[this.instrumentUrl+note] ;
-                source.loopStart = source.buffer.duration - this.loopDurations[this.instrumentUrl+note];
+                var when ;
+                if(e.detail.playNow !== undefined) {
+                    when = context.currentTime ;
+                }
+                else{
+                    var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                    when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
+                }
+                source.buffer = this.notesBuffers[note] ;
+                source.loopStart = source.buffer.duration - this.loopDurations[note];
                 source.loopEnd = source.buffer.duration;
                 sourceGain.gain.value = 0.7 ;
                 source.connect(sourceGain);
                 source.loop = true;
-                var when = context.currentTime+e.detail.when ;
                 source.start(when);
 
                 audio.gain = sourceGain ;
                 audio.source = source ;
-
                 if(e.detail.origin ==='playback') {
                     audio.gain.connect(this.playbackSynthGain) ;
-                    this.playbackButtonAudio[this.instrumentUrl+button] = audio ;
+                    this.playbackButtonAudio[button] = audio ;
                     this.activePlayback.push(audio);
                 }
                 if(e.detail.origin ==='instrument') {
                     audio.gain.connect(this.instrumentSynthGain) ;
-                    this.instrumentButtonAudio[this.instrumentUrl+button] = audio ;
+                    this.instrumentButtonAudio[button] = audio ;
                     this.activeInstrument.push(audio) ;
                 }
+                source = null ;
+                sourceGain = null ;
+                when = null ;
+                audio = null ;
             },
             _stopButtonAudio: function(button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
-                var audio , when  ;
-                var index;
-                when = context.currentTime+e.detail.when ;
-                audio = this.instrumentButtonAudio[this.instrumentUrl+button] ;
+                var audio  ;
+
+                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                var when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
+
+                if(e.detail.origin === 'instrument')
+                    audio = this.instrumentButtonAudio[button] ;
                 if(e.detail.origin==='playback')
-                    audio = this.playbackButtonAudio[this.instrumentUrl+button] ;
+                    audio = this.playbackButtonAudio[button] ;
+                if(audio === undefined || audio === null )
+                    return ;
                 audio.gain.gain.cancelScheduledValues(when) ;
                 audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
                 audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
-                audio.source.stop(when+1) ;
+                audio.source.stop(when+0.1) ;
+                audio.source.onended = function(){
+                    synthBuffer -- ;
+                    if(synthBuffer < 0 )
+                        synthBuffer = 0 ;
+                } ;
+                var i ;
+                if(e.detail.origin ==='playback'){
+                    this.playbackEndTimestamps.push(when+4) ;
+                    for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
+                    this.playbackEndTimestamps.splice(0,i);
+                    this.activePlayback.splice(0,i) ;
+                }
+                if(e.detail.origin === 'instrument') {
+                    this.instrumentEndTimestamps.push(when+4) ;
+                    for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
+                    this.instrumentEndTimestamps.splice(0,i);
+                    this.activeInstrument.splice(0,i) ;
+                }
+                audio = null ;
+                when = null ;
             },
             stop: function(origin){
                 var audio;
+                synthBuffer = 0 ;
                 if(origin==='playback') {
+                    this.playbackEndTimestamps = [] ;
                     while (this.activePlayback.length > 0) {
                         audio = this.activePlayback[this.activePlayback.length - 1];
+                        if(audio === null || audio === undefined)
+                            continue ;
                         audio.gain.gain.cancelScheduledValues(context.currentTime) ;
                         audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
                         audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+1) ;
+                        audio.source.stop(context.currentTime+0.1) ;
                         this.activePlayback.pop();
                     }
                 }
                 else if( origin==='instrument') {
+                    this.instrumentEndTimestamps = [] ;
                     while (this.activeInstrument.length > 0) {
                         audio = this.activeInstrument[this.activeInstrument.length - 1];
+                        if(audio === null || audio === undefined)
+                            continue ;
                         audio.gain.gain.cancelScheduledValues(context.currentTime) ;
                         audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
                         audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+1) ;
+                        audio.source.stop(context.currentTime+0.1) ;
                         this.activeInstrument.pop();
                     }
                 }
@@ -218,7 +272,7 @@
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
                 this.instrumentSynthGain.connect(this.instrumentPanner);
-                this.instrumentPanner.connect(compressor);
+                this.instrumentPanner.connect(context.destination);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -229,9 +283,18 @@
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
                 this.playbackSynthGain.connect(this.playbackPanner);
-                this.playbackPanner.connect(compressor);
+                this.playbackPanner.connect(context.destination);
             },
             ready: function () {
+                this.playbackEndTimestamps =[] ;
+                this.instrumentEndTimestamps =[] ;
+                this.requested = [] ;
+                this.loopDurations = [] ;
+                this.notesBuffers = [] ;
+                this.playbackButtonAudio = [] ;
+                this.instrumentButtonAudio = []  ;
+                this.activeInstrument = []  ;
+                this.activePlayback = []  ;
                 if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
                 if(!this.playbackSynthGain)
