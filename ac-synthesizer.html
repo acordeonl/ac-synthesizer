@@ -152,87 +152,105 @@
                 this.instrumentPanner.pan.value = value ;
             },
             _startButtonAudio: function(note,button,e){
-                if(e.detail.origin==='playbackGUI')
+                if(e.detail.channel !== 0 )
                     return ;
+                if(e.detail.origin==='playbackGUI'){
+                    return ;
+                }
                 synthBuffer ++ ;
                 if(synthBuffer > synthBufferLen)
                     synthBuffer = synthBufferLen ;
 
-                var audio = {};
                 var sourceGain = context.createGain();
                 var source = context.createBufferSource();
-                var when ;
-                if(e.detail.playNow !== undefined) {
-                    when = context.currentTime ;
-                }
-                else{
-                    var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                    when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
-                }
+                var when ,refWhen,playBackTime ;
+
+                sourceGain.gain.value = 0.7 ;
+                source.connect(sourceGain);
+                if(e.detail.origin ==='playback')
+                    sourceGain.connect(this.playbackSynthGain) ;
+                if(e.detail.origin ==='instrument')
+                    sourceGain.connect(this.instrumentSynthGain) ;
+
                 source.buffer = this.notesBuffers[note] ;
                 source.loopStart = source.buffer.duration - this.loopDurations[note];
                 source.loopEnd = source.buffer.duration;
-                sourceGain.gain.value = 0.7 ;
-                source.connect(sourceGain);
                 source.loop = true;
+
+                when = context.currentTime ;
+                console.log(button,note,'start',e.detail.time,when);
+                playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                refWhen = (e.detail.tempo)*(e.detail.time-playBackTime) ;
+                if(e.detail.playNow === undefined){
+                    if(refWhen>0)
+                        when += refWhen  ;
+                }
                 source.start(when);
-                audio.gain = sourceGain ;
-                audio.source = source ;
-                if(e.detail.origin ==='playback') {
-                    audio.gain.connect(this.playbackSynthGain) ;
-                    this.playbackButtonAudio[button] = audio ;
-                    this.activePlayback.push(audio);
-                }
-                if(e.detail.origin ==='instrument') {
-                    audio.gain.connect(this.instrumentSynthGain) ;
-                    this.instrumentButtonAudio[button] = audio ;
-                    this.activeInstrument.push(audio) ;
-                }
-                source = null ;
-                sourceGain = null ;
-                when = null ;
-                audio = null ;
-            },
-            _stopButtonAudio: function(button,e){
-                if(e.detail.origin==='playbackGUI')
-                    return ;
-                var audio  ;
 
-                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                var when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
-
-                if(e.detail.origin === 'instrument')
-                    audio = this.instrumentButtonAudio[button] ;
-                if(e.detail.origin==='playback')
-                    audio = this.playbackButtonAudio[button] ;
-                if(audio === undefined || audio === null )
-                    return ;
-                audio.gain.gain.cancelScheduledValues(when) ;
-                audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
-                audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
-                audio.source.stop(when+0.1) ;
-                audio.source.onended = function(){
+                when = context.currentTime+(e.detail.tempo)*(e.detail.endTime-playBackTime) ;
+                console.log(button,note,'end',e.detail.endTime,when);
+                sourceGain.gain.cancelScheduledValues(when) ;
+                sourceGain.gain.setValueAtTime(sourceGain.gain.value, when);
+                sourceGain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
+                source.stop(when+0.1) ;
+                source.onended = function(){
                     synthBuffer -- ;
                     if(synthBuffer < 0 )
                         synthBuffer = 0 ;
                 } ;
-                var i ;
-                if(e.detail.origin ==='playback'){
-                    this.playbackEndTimestamps.push(when+4) ;
-                    for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
-                    this.playbackEndTimestamps.splice(0,i);
-                    this.activePlayback.splice(0,i) ;
-                }
-                if(e.detail.origin === 'instrument') {
-                    this.instrumentEndTimestamps.push(when+4) ;
-                    for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
-                    this.instrumentEndTimestamps.splice(0,i);
-                    this.activeInstrument.splice(0,i) ;
-                }
-                audio = null ;
-                when = null ;
+
+                // source = null ;
+                // sourceGain = null ;
+                // when = null ;
             },
+            // _stopButtonAudio: function(button,e){
+            //     return ;
+            //     if(e.detail.origin==='playbackGUI')
+            //         return ;
+            //     var audio  ;
+            //
+            //
+            //     var when = context.currentTime ;
+            //     var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+            //     var refWhen = (e.detail.tempo)*(e.detail.time-playBackTime) ;
+            //     if(refWhen>0)
+            //         when += refWhen  ;
+            //
+            //
+            //     if(e.detail.origin === 'instrument')
+            //         audio = this.instrumentButtonAudio[button] ;
+            //     if(e.detail.origin==='playback')
+            //         audio = this.playbackButtonAudio[button] ;
+            //     if(audio === undefined || audio === null )
+            //         return ;
+            //     audio.gain.gain.cancelScheduledValues(when) ;
+            //     audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
+            //     audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
+            //     audio.source.stop(when+0.1) ;
+            //     audio.source.onended = function(){
+            //         synthBuffer -- ;
+            //         if(synthBuffer < 0 )
+            //             synthBuffer = 0 ;
+            //     } ;
+            //     // var i ;
+            //     // if(e.detail.origin ==='playback'){
+            //     //     this.playbackEndTimestamps.push(when+4) ;
+            //     //     for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
+            //     //     this.playbackEndTimestamps.splice(0,i);
+            //     //     this.activePlayback.splice(0,i) ;
+            //     // }
+            //     // if(e.detail.origin === 'instrument') {
+            //     //     this.instrumentEndTimestamps.push(when+4) ;
+            //     //     for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
+            //     //     this.instrumentEndTimestamps.splice(0,i);
+            //     //     this.activeInstrument.splice(0,i) ;
+            //     // }
+            //     audio = null ;
+            //     when = null ;
+            // },
             stop: function(origin){
+                // context.currentTime += 1000 ;
+                return ;
                 var audio;
                 synthBuffer = 0 ;
                 if(origin==='playback') {
