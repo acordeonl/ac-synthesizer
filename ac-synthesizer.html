@@ -152,18 +152,12 @@
                 this.instrumentPanner.pan.value = value ;
             },
             _startButtonAudio: function(note,button,e){
-                if(e.detail.channel !== 0 )
+                if(e.detail.origin==='playbackGUI')
                     return ;
-                if(e.detail.origin==='playbackGUI'){
-                    return ;
-                }
-                synthBuffer ++ ;
-                if(synthBuffer > synthBufferLen)
-                    synthBuffer = synthBufferLen ;
 
                 var sourceGain = context.createGain();
                 var source = context.createBufferSource();
-                var when ,refWhen,playBackTime ;
+                var when ,playBackTime ;
 
                 sourceGain.gain.value = 0.7 ;
                 source.connect(sourceGain);
@@ -178,112 +172,37 @@
                 source.loop = true;
 
                 when = context.currentTime ;
-                console.log(button,note,'start',e.detail.time,when);
                 playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                refWhen = (e.detail.tempo)*(e.detail.time-playBackTime) ;
                 if(e.detail.playNow === undefined){
-                    if(refWhen>0)
-                        when += refWhen  ;
+                    when += (e.detail.tempo)*(e.detail.time-playBackTime) ;
                 }
                 source.start(when);
 
                 when = context.currentTime+(e.detail.tempo)*(e.detail.endTime-playBackTime) ;
-                console.log(button,note,'end',e.detail.endTime,when);
                 sourceGain.gain.cancelScheduledValues(when) ;
                 sourceGain.gain.setValueAtTime(sourceGain.gain.value, when);
                 sourceGain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
                 source.stop(when+0.1) ;
-                source.onended = function(){
-                    synthBuffer -- ;
-                    if(synthBuffer < 0 )
-                        synthBuffer = 0 ;
-                } ;
-
-                // source = null ;
-                // sourceGain = null ;
-                // when = null ;
+                source = null ;
+                sourceGain = null;
+                when = null ;
+                playBackTime = null ;
+                e = null ;
+                note = null ;
+                button = null ;
             },
-            // _stopButtonAudio: function(button,e){
-            //     return ;
-            //     if(e.detail.origin==='playbackGUI')
-            //         return ;
-            //     var audio  ;
-            //
-            //
-            //     var when = context.currentTime ;
-            //     var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-            //     var refWhen = (e.detail.tempo)*(e.detail.time-playBackTime) ;
-            //     if(refWhen>0)
-            //         when += refWhen  ;
-            //
-            //
-            //     if(e.detail.origin === 'instrument')
-            //         audio = this.instrumentButtonAudio[button] ;
-            //     if(e.detail.origin==='playback')
-            //         audio = this.playbackButtonAudio[button] ;
-            //     if(audio === undefined || audio === null )
-            //         return ;
-            //     audio.gain.gain.cancelScheduledValues(when) ;
-            //     audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
-            //     audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
-            //     audio.source.stop(when+0.1) ;
-            //     audio.source.onended = function(){
-            //         synthBuffer -- ;
-            //         if(synthBuffer < 0 )
-            //             synthBuffer = 0 ;
-            //     } ;
-            //     // var i ;
-            //     // if(e.detail.origin ==='playback'){
-            //     //     this.playbackEndTimestamps.push(when+4) ;
-            //     //     for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
-            //     //     this.playbackEndTimestamps.splice(0,i);
-            //     //     this.activePlayback.splice(0,i) ;
-            //     // }
-            //     // if(e.detail.origin === 'instrument') {
-            //     //     this.instrumentEndTimestamps.push(when+4) ;
-            //     //     for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
-            //     //     this.instrumentEndTimestamps.splice(0,i);
-            //     //     this.activeInstrument.splice(0,i) ;
-            //     // }
-            //     audio = null ;
-            //     when = null ;
-            // },
             stop: function(origin){
-                // context.currentTime += 1000 ;
-                return ;
-                var audio;
-                synthBuffer = 0 ;
-                if(origin==='playback') {
-                    this.playbackEndTimestamps = [] ;
-                    while (this.activePlayback.length > 0) {
-                        audio = this.activePlayback[this.activePlayback.length - 1];
-                        if(audio === null || audio === undefined)
-                            continue ;
-                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
-                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
-                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+0.1) ;
-                        this.activePlayback.pop();
-                    }
-                }
-                else if( origin==='instrument') {
-                    this.instrumentEndTimestamps = [] ;
-                    while (this.activeInstrument.length > 0) {
-                        audio = this.activeInstrument[this.activeInstrument.length - 1];
-                        if(audio === null || audio === undefined)
-                            continue ;
-                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
-                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
-                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+0.1) ;
-                        this.activeInstrument.pop();
-                    }
-                }
+                this.instrumentSynthGain = null ;
+                this.instrumentPanner = null ;
+                this.playbackSynthGain = null ;
+                this.playbackPanner = null ;
+                this._updatePlaybackVolume () ;
+                this._updateInstrumentVolume () ;
             },
             _updateInstrumentVolume: function(){
-                if(!this.instrumentSynthGain)
+                if(this.instrumentSynthGain === null || !this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
-                if(!this.instrumentPanner)
+                if(this.instrumentPanner === null || !this.instrumentPanner)
                     this.instrumentPanner = context.createStereoPanner() ;
                 if(this.instrumentGain !==undefined && this.instrumentVelocity!==undefined) {
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
