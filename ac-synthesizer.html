@@ -181,8 +181,8 @@
                 when = context.currentTime+(e.detail.tempo)*(e.detail.endTime-playBackTime) ;
                 sourceGain.gain.cancelScheduledValues(when) ;
                 sourceGain.gain.setValueAtTime(sourceGain.gain.value, when);
-                sourceGain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
-                source.stop(when+0.1) ;
+                sourceGain.gain.exponentialRampToValueAtTime(0.00001, when+0.07);
+                source.stop(when+0.07) ;
                 source = null ;
                 sourceGain = null;
                 when = null ;
@@ -208,7 +208,7 @@
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
                 this.instrumentSynthGain.connect(this.instrumentPanner);
-                this.instrumentPanner.connect(context.destination);
+                this.instrumentPanner.connect(masterGain);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -219,7 +219,7 @@
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
                 this.playbackSynthGain.connect(this.playbackPanner);
-                this.playbackPanner.connect(context.destination);
+                this.playbackPanner.connect(masterGain);
             },
             ready: function () {
                 this.playbackEndTimestamps =[] ;
