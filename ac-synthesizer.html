@@ -154,61 +154,116 @@
             _startButtonAudio: function(note,button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
-
+                var audio = {};
                 var sourceGain = context.createGain();
                 var source = context.createBufferSource();
-                var when ,playBackTime ;
-
-                sourceGain.gain.value = 0.7 ;
-                source.connect(sourceGain);
-                if(e.detail.origin ==='playback')
-                    sourceGain.connect(this.playbackSynthGain) ;
-                if(e.detail.origin ==='instrument')
-                    sourceGain.connect(this.instrumentSynthGain) ;
-
+                var when ;
+                if(e.detail.playNow !== undefined) {
+                    when = context.currentTime ;
+                }
+                else{
+                    var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                    when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
+                }
                 source.buffer = this.notesBuffers[note] ;
                 source.loopStart = source.buffer.duration - this.loopDurations[note];
                 source.loopEnd = source.buffer.duration;
+                sourceGain.gain.value = 0.7 ;
+                source.connect(sourceGain);
                 source.loop = true;
-
-                when = context.currentTime ;
-                playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                if(e.detail.playNow === undefined){
-                    when += (e.detail.tempo)*(e.detail.time-playBackTime) ;
-                }
                 source.start(when);
 
-                when = context.currentTime+(e.detail.tempo)*(e.detail.endTime-playBackTime) ;
-                sourceGain.gain.cancelScheduledValues(when) ;
-                sourceGain.gain.setValueAtTime(sourceGain.gain.value, when);
-                sourceGain.gain.exponentialRampToValueAtTime(0.00001, when+0.07);
-                source.stop(when+0.07) ;
+                audio.gain = sourceGain ;
+                audio.source = source ;
+                console.log(this.activePlayback.length); 
+                if(e.detail.origin ==='playback') {
+                    audio.gain.connect(this.playbackSynthGain) ;
+                    this.playbackButtonAudio[button] = audio ;
+                    this.activePlayback.push(audio);
+                }
+                if(e.detail.origin ==='instrument') {
+                    audio.gain.connect(this.instrumentSynthGain) ;
+                    this.instrumentButtonAudio[button] = audio ;
+                    this.activeInstrument.push(audio) ;
+                }
                 source = null ;
-                sourceGain = null;
+                sourceGain = null ;
                 when = null ;
-                playBackTime = null ;
-                e = null ;
-                note = null ;
-                button = null ;
+                audio = null ;
+            },
+            _stopButtonAudio: function(button,e){
+                if(e.detail.origin==='playbackGUI')
+                    return ;
+                var audio  ;
+
+                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                var when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
+
+                if(e.detail.origin === 'instrument')
+                    audio = this.instrumentButtonAudio[button] ;
+                if(e.detail.origin==='playback')
+                    audio = this.playbackButtonAudio[button] ;
+                if(audio === undefined || audio === null )
+                    return ;
+                audio.gain.gain.cancelScheduledValues(when) ;
+                audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
+                audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
+                audio.source.stop(when+0.1) ;
+                var i ;
+                if(e.detail.origin ==='playback'){
+                    this.playbackEndTimestamps.push(when+4) ;
+                    for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
+                    this.playbackEndTimestamps.splice(0,i);
+                    this.activePlayback.splice(0,i) ;
+                }
+                if(e.detail.origin === 'instrument') {
+                    this.instrumentEndTimestamps.push(when+4) ;
+                    for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
+                    this.instrumentEndTimestamps.splice(0,i);
+                    this.activeInstrument.splice(0,i) ;
+                }
+                audio = null ;
+                when = null ;
             },
             stop: function(origin){
-                this.instrumentSynthGain = null ;
-                this.instrumentPanner = null ;
-                this.playbackSynthGain = null ;
-                this.playbackPanner = null ;
-                this._updatePlaybackVolume () ;
-                this._updateInstrumentVolume () ;
+                var audio;
+                if(origin==='playback') {
+                    this.playbackEndTimestamps = [] ;
+                    while (this.activePlayback.length > 0) {
+                        audio = this.activePlayback[this.activePlayback.length - 1];
+                        if(audio === null || audio === undefined)
+                            continue ;
+                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
+                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
+                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
+                        audio.source.stop(context.currentTime+0.1) ;
+                        this.activePlayback.pop();
+                    }
+                }
+                else if( origin==='instrument') {
+                    this.instrumentEndTimestamps = [] ;
+                    while (this.activeInstrument.length > 0) {
+                        audio = this.activeInstrument[this.activeInstrument.length - 1];
+                        if(audio === null || audio === undefined)
+                            continue ;
+                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
+                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
+                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
+                        audio.source.stop(context.currentTime+0.1) ;
+                        this.activeInstrument.pop();
+                    }
+                }
             },
             _updateInstrumentVolume: function(){
-                if(this.instrumentSynthGain === null || !this.instrumentSynthGain)
+                if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
-                if(this.instrumentPanner === null || !this.instrumentPanner)
+                if(!this.instrumentPanner)
                     this.instrumentPanner = context.createStereoPanner() ;
                 if(this.instrumentGain !==undefined && this.instrumentVelocity!==undefined) {
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
                 this.instrumentSynthGain.connect(this.instrumentPanner);
-                this.instrumentPanner.connect(masterGain);
+                this.instrumentPanner.connect(context.destination);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -219,7 +274,7 @@
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
                 this.playbackSynthGain.connect(this.playbackPanner);
-                this.playbackPanner.connect(masterGain);
+                this.playbackPanner.connect(context.destination);
             },
             ready: function () {
                 this.playbackEndTimestamps =[] ;
