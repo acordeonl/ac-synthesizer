@@ -66,11 +66,11 @@
                     type:Array,
                     value:[]
                 },
-                playbackButtonAudio:{
+                playBA:{
                     type:Array,
                     value:[]
                 },
-                instrumentButtonAudio:{
+                instBA:{
                     type:Array,
                     value:[]
                 },
@@ -85,9 +85,17 @@
                 instrumentEndTimestamps:{
                     type:Array,
                     value:[]
-                }
+                },
+                sampleNote:{
+                    type:Number
+                },
+                preallocated:{
+                    type:Boolean,
+                    value:false
+                },
             },
             loadNote: function(note,id){
+                this.sampleNote = note ;
                 if(this.requested[note]!==undefined) {
                     if(this.notesLoaded === undefined )
                         this.notesLoaded = 0 ;
@@ -130,6 +138,18 @@
                     this.notesLoaded ++ ;
                     if(this.notesLoaded === this.instrumentNotes ) {
                         this.fire('notes-loaded') ;
+                        // if (!this.preallocated) {
+                        //     this.preallocated = true ;
+                        //     for (var i = 0; i <1000; i++) {
+                        //         this.playBA[i] = {} ;
+                        //         this.instBA[i] = {} ;
+                        //         this.playBA[i].gain = context.createGain();
+                        //         this.playBA[i].source = context.createBufferSource();
+                        //         this.playBA[i].source.buffer = this.notesBuffers[this.sampleNote] ;
+                        //         this.instBA[i].gain = context.createGain();
+                        //         this.instBA[i].source = context.createBufferSource();
+                        //     }
+                        // }
                     }
                 }.bind(this));
             },
@@ -154,105 +174,50 @@
             _startButtonAudio: function(note,button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
-                var audio = {};
-                var sourceGain = context.createGain();
-                var source = context.createBufferSource();
-                var when ;
-                if(e.detail.playNow !== undefined) {
-                    when = context.currentTime ;
-                }
-                else{
-                    var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                    when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
-                }
-                source.buffer = this.notesBuffers[note] ;
-                source.loopStart = source.buffer.duration - this.loopDurations[note];
-                source.loopEnd = source.buffer.duration;
-                sourceGain.gain.value = 0.7 ;
-                source.connect(sourceGain);
-                source.loop = true;
-                source.start(when);
-
-                audio.gain = sourceGain ;
-                audio.source = source ;
-                console.log(this.activePlayback.length); 
-                if(e.detail.origin ==='playback') {
-                    audio.gain.connect(this.playbackSynthGain) ;
-                    this.playbackButtonAudio[button] = audio ;
-                    this.activePlayback.push(audio);
-                }
-                if(e.detail.origin ==='instrument') {
-                    audio.gain.connect(this.instrumentSynthGain) ;
-                    this.instrumentButtonAudio[button] = audio ;
-                    this.activeInstrument.push(audio) ;
-                }
-                source = null ;
-                sourceGain = null ;
-                when = null ;
-                audio = null ;
+                var when = context.currentTime ;
+                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                if( (e.detail.tempo)*(e.detail.time-playBackTime)> 0)
+                    when += (e.detail.tempo)*(e.detail.time-playBackTime)  ;
+                this.playBA[button] = {} ;
+                this.playBA[button].gain = context.createGain();
+                this.playBA[button].gain.value = 0.7 ;
+                this.playBA[button].source = context.createBufferSource();
+                this.playBA[button].source.buffer = this.notesBuffers[note] ;
+                this.playBA[button].source.loopStart = this.playBA[button].source.buffer.duration - this.loopDurations[note];
+                this.playBA[button].source.loopEnd = this.playBA[button].source.buffer.duration;
+                this.playBA[button].source.connect(this.playBA[button].gain);
+                this.playBA[button].source.loop = true;
+                this.playBA[button].source.start(when);
+                if(e.detail.origin ==='playback')
+                    this.playBA[button].gain.connect(this.playbackSynthGain) ;
+                if(e.detail.origin ==='instrument')
+                    this.playBA[button].gain.connect(this.instrumentSynthGain) ;
             },
             _stopButtonAudio: function(button,e){
                 if(e.detail.origin==='playbackGUI')
                     return ;
-                var audio  ;
 
                 var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                var when =  context.currentTime+(e.detail.tempo)*(e.detail.time-playBackTime)  ;
+                var when =  context.currentTime ;
+                if((e.detail.tempo)*(e.detail.time-playBackTime) > 0)
+                    when += (e.detail.tempo)*(e.detail.time-playBackTime) ;
 
-                if(e.detail.origin === 'instrument')
-                    audio = this.instrumentButtonAudio[button] ;
-                if(e.detail.origin==='playback')
-                    audio = this.playbackButtonAudio[button] ;
-                if(audio === undefined || audio === null )
-                    return ;
-                audio.gain.gain.cancelScheduledValues(when) ;
-                audio.gain.gain.setValueAtTime(audio.gain.gain.value, when);
-                audio.gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
-                audio.source.stop(when+0.1) ;
-                var i ;
-                if(e.detail.origin ==='playback'){
-                    this.playbackEndTimestamps.push(when+4) ;
-                    for (i = 0; i < this.playbackEndTimestamps.length && this.playbackEndTimestamps[i]<context.currentTime; i++);
-                    this.playbackEndTimestamps.splice(0,i);
-                    this.activePlayback.splice(0,i) ;
-                }
                 if(e.detail.origin === 'instrument') {
-                    this.instrumentEndTimestamps.push(when+4) ;
-                    for (i = 0; i < this.instrumentEndTimestamps.length && this.instrumentEndTimestamps[i]<context.currentTime; i++);
-                    this.instrumentEndTimestamps.splice(0,i);
-                    this.activeInstrument.splice(0,i) ;
+                    this.instBA[button].gain.gain.cancelScheduledValues(when) ;
+                    this.instBA[button].gain.gain.setValueAtTime(this.instBA[button].gain.gain.value, when);
+                    this.instBA[button].gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
+                    this.instBA[button].source.stop(when+0.1) ;
+                    this.instBA[button] = null  ;
                 }
-                audio = null ;
-                when = null ;
+                if(e.detail.origin==='playback'){
+                    this.playBA[button].gain.gain.cancelScheduledValues(when) ;
+                    this.playBA[button].gain.gain.setValueAtTime(this.playBA[button].gain.gain.value, when);
+                    this.playBA[button].gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
+                    this.playBA[button].source.stop(when+0.1) ;
+                    this.playBA[button] = null ;
+                }
             },
             stop: function(origin){
-                var audio;
-                if(origin==='playback') {
-                    this.playbackEndTimestamps = [] ;
-                    while (this.activePlayback.length > 0) {
-                        audio = this.activePlayback[this.activePlayback.length - 1];
-                        if(audio === null || audio === undefined)
-                            continue ;
-                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
-                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
-                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+0.1) ;
-                        this.activePlayback.pop();
-                    }
-                }
-                else if( origin==='instrument') {
-                    this.instrumentEndTimestamps = [] ;
-                    while (this.activeInstrument.length > 0) {
-                        audio = this.activeInstrument[this.activeInstrument.length - 1];
-                        if(audio === null || audio === undefined)
-                            continue ;
-                        audio.gain.gain.cancelScheduledValues(context.currentTime) ;
-                        audio.gain.gain.setValueAtTime(audio.gain.gain.value, context.currentTime);
-                        audio.gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime+0.1);
-                        audio.source.stop(context.currentTime+0.1) ;
-                        this.activeInstrument.pop();
-                    }
-                }
             },
             _updateInstrumentVolume: function(){
                 if(!this.instrumentSynthGain)
@@ -277,15 +242,12 @@
                 this.playbackPanner.connect(context.destination);
             },
             ready: function () {
-                this.playbackEndTimestamps =[] ;
-                this.instrumentEndTimestamps =[] ;
                 this.requested = [] ;
                 this.loopDurations = [] ;
                 this.notesBuffers = [] ;
-                this.playbackButtonAudio = [] ;
-                this.instrumentButtonAudio = []  ;
-                this.activeInstrument = []  ;
-                this.activePlayback = []  ;
+                this.playBA = [] ;
+                this.instBA = []  ;
+                this.preallocated = false ;
                 if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
                 if(!this.playbackSynthGain)
