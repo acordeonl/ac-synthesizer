@@ -35,6 +35,14 @@
                 playbackSynthGain:{
                     type:Object
                 },
+                playbackPanning:{
+                    type:Number,
+                    value:0
+                },
+                instrumentPanning:{
+                    type:Number,
+                    value:0
+                },
                 id:{
                     reflectToAttribute:true,
                     type:String
@@ -85,17 +93,9 @@
                 instrumentEndTimestamps:{
                     type:Array,
                     value:[]
-                },
-                sampleNote:{
-                    type:Number
-                },
-                preallocated:{
-                    type:Boolean,
-                    value:false
-                },
+                }
             },
             loadNote: function(note,id){
-                this.sampleNote = note ;
                 if(this.requested[note]!==undefined) {
                     if(this.notesLoaded === undefined )
                         this.notesLoaded = 0 ;
@@ -138,18 +138,6 @@
                     this.notesLoaded ++ ;
                     if(this.notesLoaded === this.instrumentNotes ) {
                         this.fire('notes-loaded') ;
-                        // if (!this.preallocated) {
-                        //     this.preallocated = true ;
-                        //     for (var i = 0; i <1000; i++) {
-                        //         this.playBA[i] = {} ;
-                        //         this.instBA[i] = {} ;
-                        //         this.playBA[i].gain = context.createGain();
-                        //         this.playBA[i].source = context.createBufferSource();
-                        //         this.playBA[i].source.buffer = this.notesBuffers[this.sampleNote] ;
-                        //         this.instBA[i].gain = context.createGain();
-                        //         this.instBA[i].source = context.createBufferSource();
-                        //     }
-                        // }
                     }
                 }.bind(this));
             },
@@ -166,19 +154,22 @@
                 this._updateInstrumentVolume() ;
             },
             setPlaybackPanning: function(value){
-                this.playbackPanner.pan.value = value ;
+                this.playbackPanning = value ;
+                this._updatePlaybackPanning() ;
             },
             setInstrumentPanning: function(value){
-                this.instrumentPanner.pan.value = value ;
+                this.instrumentPanning = value ;
+                this._updateInstrumentPanning() ;
             },
             _startButtonAudio: function(note,button,e){
-                if(e.detail.origin==='playbackGUI')
+                if(e.origin==='playbackGUI')
                     return ;
                 var when = context.currentTime ;
-                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
-                if( (e.detail.tempo)*(e.detail.time-playBackTime)> 0)
-                    when += (e.detail.tempo)*(e.detail.time-playBackTime)  ;
-                this.playBA[button] = {} ;
+                var playBackTime = e.playedTime + (context.currentTime-e.playTime)/(e.tempo) ;
+                if( (e.tempo)*(e.time-playBackTime)> 0)
+                    when += (e.tempo)*(e.time-playBackTime)  ;
+                if(this.playBA[button] === undefined || this.playBA[button] === null)
+                    this.playBA[button] = {} ;
                 this.playBA[button].gain = context.createGain();
                 this.playBA[button].gain.value = 0.7 ;
                 this.playBA[button].source = context.createBufferSource();
@@ -188,28 +179,28 @@
                 this.playBA[button].source.connect(this.playBA[button].gain);
                 this.playBA[button].source.loop = true;
                 this.playBA[button].source.start(when);
-                if(e.detail.origin ==='playback')
+                if(e.origin ==='playback')
                     this.playBA[button].gain.connect(this.playbackSynthGain) ;
-                if(e.detail.origin ==='instrument')
+                if(e.origin ==='instrument')
                     this.playBA[button].gain.connect(this.instrumentSynthGain) ;
             },
             _stopButtonAudio: function(button,e){
-                if(e.detail.origin==='playbackGUI')
+                if(e.origin==='playbackGUI')
                     return ;
 
-                var playBackTime = e.detail.playedTime + (context.currentTime-e.detail.playTime)/(e.detail.tempo) ;
+                var playBackTime = e.playedTime + (context.currentTime-e.playTime)/(e.tempo) ;
                 var when =  context.currentTime ;
-                if((e.detail.tempo)*(e.detail.time-playBackTime) > 0)
-                    when += (e.detail.tempo)*(e.detail.time-playBackTime) ;
+                if((e.tempo)*(e.time-playBackTime) > 0)
+                    when += (e.tempo)*(e.time-playBackTime) ;
 
-                if(e.detail.origin === 'instrument') {
+                if(e.origin === 'instrument') {
                     this.instBA[button].gain.gain.cancelScheduledValues(when) ;
                     this.instBA[button].gain.gain.setValueAtTime(this.instBA[button].gain.gain.value, when);
                     this.instBA[button].gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
                     this.instBA[button].source.stop(when+0.1) ;
                     this.instBA[button] = null  ;
                 }
-                if(e.detail.origin==='playback'){
+                if(e.origin==='playback'){
                     this.playBA[button].gain.gain.cancelScheduledValues(when) ;
                     this.playBA[button].gain.gain.setValueAtTime(this.playBA[button].gain.gain.value, when);
                     this.playBA[button].gain.gain.exponentialRampToValueAtTime(0.00001, when+0.1);
@@ -218,6 +209,24 @@
                 }
             },
             stop: function(origin){
+                this.instrumentSynthGain = context.createGain() ;
+                this.instrumentPanner = context.createStereoPanner() ;
+                this.instrumentSynthGain.connect(this.instrumentPanner);
+                this.instrumentPanner.connect(masterGain);
+                this.playbackSynthGain = context.createGain() ;
+                this.playbackPanner = context.createStereoPanner() ;
+                this.playbackSynthGain.connect(this.playbackPanner);
+                this.playbackPanner.connect(masterGain);
+                this._updateInstrumentVolume() ;
+                this._updatePlaybackVolume() ;
+                this._updatePlaybackPanning() ;
+                this._updateInstrumentPanning() ;
+            },
+            _updatePlaybackPanning: function(){
+                this.playbackPanner.pan.value = this.playbackPanning ;
+            },
+            _updateInstrumentPanning: function(){
+                this.instrumentPanner.pan.value = this.instrumentPanning ;
             },
             _updateInstrumentVolume: function(){
                 if(!this.instrumentSynthGain)
@@ -228,7 +237,7 @@
                     this.instrumentSynthGain.gain.value = this.instrumentGain*this.instrumentVelocity ;
                 }
                 this.instrumentSynthGain.connect(this.instrumentPanner);
-                this.instrumentPanner.connect(context.destination);
+                this.instrumentPanner.connect(masterGain);
             },
             _updatePlaybackVolume: function(){
                 if(!this.playbackSynthGain)
@@ -239,7 +248,7 @@
                     this.playbackSynthGain.gain.value = this.playbackGain;
                 }
                 this.playbackSynthGain.connect(this.playbackPanner);
-                this.playbackPanner.connect(context.destination);
+                this.playbackPanner.connect(masterGain);
             },
             ready: function () {
                 this.requested = [] ;
@@ -247,7 +256,6 @@
                 this.notesBuffers = [] ;
                 this.playBA = [] ;
                 this.instBA = []  ;
-                this.preallocated = false ;
                 if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
                 if(!this.playbackSynthGain)
