@@ -104,6 +104,8 @@
                 this.updateID ++ ;
             },
             loadNote: function(note){
+                if(this.noteNotFound)
+                    return ;
                 if(this.requested[note]!==undefined) {
                     this.notesLoaded ++ ;
                     if(this.notesLoaded === this.totalNotes )
@@ -126,6 +128,7 @@
                     if (!this.noteNotFound) {
                         this.fire("toast", {msg: 'La tonalidad no pudo ser cargada'});
                         this.noteNotFound = true;
+                        this.fire('synthesizer-load') ;
                     }
                     return;
                 }
