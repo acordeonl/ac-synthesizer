@@ -101,7 +101,8 @@
                         this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
                     if(this.notesLoaded === this.instrumentNotes ) {
-                        this.fire('notes-loaded') ;
+                        this.notesLoaded = 0 ;
+                        this.fire('synthesizer-load') ;
                     }
                     return ;
                 }
@@ -137,7 +138,8 @@
                         this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
                     if(this.notesLoaded === this.instrumentNotes ) {
-                        this.fire('notes-loaded') ;
+                        this.notesLoaded = 0 ;
+                        this.fire('synthesizer-load') ;
                     }
                 }.bind(this));
             },
