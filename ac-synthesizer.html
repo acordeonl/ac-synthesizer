@@ -43,21 +43,24 @@
                     type:Number,
                     value:0
                 },
-                id:{
-                    reflectToAttribute:true,
-                    type:String
-                },
                 instrumentUrl: {
                     type: String
+                },
+                noteNotFound:{
+                    type:Boolean,
+                    value:false
                 },
                 notesLoaded:{
                     type:Number,
                     value:0
                 },
-                instrumentNotes:{
+                totalNotes:{
                     type:Number
                 },
-
+                updateID:{
+                    type:Number,
+                    value:0
+                },
                 activePlayback:{
                     type:Array,
                     value:[]
@@ -95,19 +98,20 @@
                     value:[]
                 }
             },
-            loadNote: function(note,id){
+            onPitchUpdate: function(){
+                this.noteNotFound = false ;
+                this.notesLoaded = 0 ;
+                this.updateID ++ ;
+            },
+            loadNote: function(note){
                 if(this.requested[note]!==undefined) {
-                    if(this.notesLoaded === undefined )
-                        this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
-                    if(this.notesLoaded === this.instrumentNotes ) {
-                        this.notesLoaded = 0 ;
+                    if(this.notesLoaded === this.totalNotes )
                         this.fire('synthesizer-load') ;
-                    }
                     return ;
                 }
                 var request = new XMLHttpRequest();
-                request.id = id ;
+                request.id = this.updateID ;
                 request.note = note ;
                 request.open('GET', this.instrumentUrl+'/'+request.note+'c.mp3', true);
                 request.responseType = 'arraybuffer';
@@ -116,10 +120,12 @@
             },
             _onload: function(request){
                 request = request.currentTarget ;
+                if(request.id !== this.updateID)
+                    return ;
                 if (request.status === 404) {
-                    if (!noteNotFound) {
+                    if (!this.noteNotFound) {
                         this.fire("toast", {msg: 'La tonalidad no pudo ser cargada'});
-                        noteNotFound = true;
+                        this.noteNotFound = true;
                     }
                     return;
                 }
@@ -134,10 +140,8 @@
                 var sound = dstU8;
                 context.decodeAudioData(sound.buffer, function (buffer) {
                     this.notesBuffers[request.note] = buffer ;
-                    if(this.notesLoaded === undefined )
-                        this.notesLoaded = 0 ;
                     this.notesLoaded ++ ;
-                    if(this.notesLoaded === this.instrumentNotes ) {
+                    if(this.notesLoaded === this.totalNotes ) {
                         this.notesLoaded = 0 ;
                         this.fire('synthesizer-load') ;
                     }
@@ -258,6 +262,8 @@
                 this.notesBuffers = [] ;
                 this.playBA = [] ;
                 this.instBA = []  ;
+                this.notesLoaded = 0 ;
+                this.updateID = 0 ;
                 if(!this.instrumentSynthGain)
                     this.instrumentSynthGain = context.createGain() ;
                 if(!this.playbackSynthGain)
