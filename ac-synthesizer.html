@@ -43,7 +43,7 @@
                     type:Number,
                     value:0
                 },
-                instrumentUrl: {
+                audioUrl: {
                     type: String
                 },
                 noteNotFound:{
@@ -98,6 +98,16 @@
                     value:[]
                 }
             },
+            resetAudio: function(audioUrl){
+                this.audioUrl = audioUrl ;
+                this.requested = [] ;
+                this.loopDurations = [] ;
+                this.notesBuffers = [] ;
+                this.playBA = [] ;
+                this.instBA = []  ;
+                this.notesLoaded = 0 ;
+                this.updateID = 0 ;
+            },
             onPitchUpdate: function(){
                 this.noteNotFound = false ;
                 this.notesLoaded = 0 ;
@@ -112,10 +122,11 @@
                         this.fire('synthesizer-load') ;
                     return ;
                 }
+                console.log(this.audioUrl);
                 var request = new XMLHttpRequest();
                 request.id = this.updateID ;
                 request.note = note ;
-                request.open('GET', this.instrumentUrl+'/'+request.note+'c.mp3', true);
+                request.open('GET', this.audioUrl+'/'+request.note+'c.mp3', true);
                 request.responseType = 'arraybuffer';
                 request.onload = this._onload.bind(this) ;
                 request.send();
